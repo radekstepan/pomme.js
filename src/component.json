@@ -3,12 +3,8 @@
     "main": "samskipti.js",
     "version": "0.0.0",
     "dependencies": {
-        "component/map": "*",
-        "segmentio/extend": "*",
-        "component/object": "*",
-        "manuelstofer/foreach": "*",
-        "ianstormtaylor/reduce": "*",
-        "esundahl/flatten": "*"
+        "lodash/lodash": "*",
+        "timoxley/next-tick": "*"
     },
     "scripts": [
         "samskipti.coffee"

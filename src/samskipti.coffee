@@ -1,40 +1,6 @@
-#
-# * js_channel is a very lightweight abstraction on top of
-# * postMessage which defines message formats and semantics
-# * to support interactions more rich than just message passing
-# * js_channel supports:
-# *    + query/response - traditional rpc
-# *    + query/update/response - incremental async return of results
-# *        to a query
-# *    + notifications - fire and forget
-# *    + error handling
-# *
-# * js_channel is based heavily on json-rpc, but is focused at the
-# * problem of inter-iframe RPC.
-# *
-# * Message types:
-# *    There are 5 types of messages that can flow over this channel,
-# *    and you may determine what type of message an object is by
-# *    examining its parameters:
-# *    1. Requests
-# *        + integer id
-# *        + string method
-# *        + (optional) any params
-# *    2. Callback Invocations (or just "Callbacks")
-# *        + integer id
-# *        + string callback
-# *        + (optional) params
-# *    3. Error Responses (or just "Errors)
-# *        + integer id
-# *        + string error
-# *        + (optional) string message
-# *    4. Responses
-# *        + integer id
-# *        + (optional) any result
-# *    5. Notifications
-# *        + string method
-# *        + (optional) any params
-# 
+_        = require 'lodash'
+nextTick = require 'next-tick'
+
 module.exports = ->
     
     # current transaction id, start out at a random *odd* number between 1 and a million
@@ -54,20 +20,17 @@ module.exports = ->
     # add a channel to s_boundChans, throwing if a dup exists
     s_addBoundChan = (win, origin, scope, handler) ->        
         hasWin = (arr) ->
-            ( return true for x in arr when x.win is win )
-            false
+            ( return yes for x in arr when x.win is win )
+            no
 
         # does she exist?
-        exists = false
+        exists = no
         
         if origin is "*"    
             # we must check all other origins, sadly.
-            for k of s_boundChans
-                continue unless s_boundChans.hasOwnProperty(k)
-                continue if k is "*"
-                if typeof s_boundChans[k][scope] is "object"
-                    exists = hasWin s_boundChans[k][scope]
-                    break if exists
+            for k of s_boundChans when _.has(s_boundChans, k) and k isnt '*'
+                if _.isObject s_boundChans[k][scope]
+                    break if exists = hasWin s_boundChans[k][scope]
         
         else
             # we must check only '*'
@@ -77,18 +40,15 @@ module.exports = ->
             if not exists and s_boundChans[origin] and s_boundChans[origin][scope]
                 exists = hasWin s_boundChans[origin][scope]
 
-        throw "A channel is already bound to the same root which overlaps with origin '#{origin}' and has scope '#{scope}'" if exists
+        throw "A channel is already bound to the same window which overlaps with origin '#{origin}' and has scope '#{scope}'" if exists
         
-        s_boundChans[origin] = {} unless typeof s_boundChans[origin] is "object"
-        s_boundChans[origin][scope] = [] unless typeof s_boundChans[origin][scope] is "object"
+        s_boundChans[origin] = {} unless _.isObject s_boundChans[origin]
+        s_boundChans[origin][scope] = [] unless _.isObject s_boundChans[origin][scope]
         s_boundChans[origin][scope].push { win, handler }
 
     s_removeBoundChan = (win, origin, scope) ->
         s_boundChans[origin][scope] = ( x for x in s_boundChans[origin][scope] when x.win is win )
         delete s_boundChans[origin][scope] unless s_boundChans[origin][scope].length
-    
-    s_isArray = (obj) ->
-        obj.constructor.toString().indexOf("Array") isnt -1 unless Array.isArray
     
     # No two outstanding outbound messages may have the same id, period.    Given that, a single table
     # mapping "transaction ids" to message handlers, allows efficient routing of Callback, Error, and
@@ -103,7 +63,7 @@ module.exports = ->
     s_onMessage = (e) ->
         try
             m = JSON.parse(e.data)
-            throw "malformed" if typeof m isnt "object" or m is null
+            throw "malformed" if m is null or not _.isObject(m)
         catch e
             # just ignore any posted messages that do not consist of valid JSON
             return
@@ -133,28 +93,30 @@ module.exports = ->
         
         # if it has a method it's either a notification or a request,
         # route using s_boundChans
-        if typeof meth is "string"
-            delivered = no
-            if s_boundChans[o] and s_boundChans[o][s]
-                for j in [0...s_boundChans[o][s]] when s_boundChans[o][s][j].win is w
-                    s_boundChans[o][s][j].handler(o, meth, m)
-                    delivered = yes
-                    break
+        switch
+            when _.isString meth
+                delivered = no
+                if s_boundChans[o] and s_boundChans[o][s]
+                    for j in [0...s_boundChans[o][s]] when s_boundChans[o][s][j].win is w
+                        s_boundChans[o][s][j].handler(o, meth, m)
+                        delivered = yes
+                        break
 
-            if not delivered and s_boundChans["*"] and s_boundChans["*"][s]
-                for j in [0...s_boundChans["*"][s].length] when s_boundChans['*'][s][j].win is w
-                    s_boundChans["*"][s][j].handler o, meth, m
-                    break
+                if not delivered and s_boundChans["*"] and s_boundChans["*"][s]
+                    for j in [0...s_boundChans["*"][s].length] when s_boundChans['*'][s][j].win is w
+                        s_boundChans["*"][s][j].handler o, meth, m
+                        break
         
-        # otherwise it must have an id (or be poorly formed
-        else if i
-            s_transIds[i](o, meth, m) if s_transIds[i]
+            # otherwise it must have an id (or be poorly formed
+            when i
+                s_transIds[i](o, meth, m) if s_transIds[i]
 
     
     # Setup postMessage event listeners
     switch
         when 'addEventListener' of window
             window.addEventListener('message', s_onMessage, no)
+        
         when 'attachEvent' of window
             window.attachEvent('onmessage', s_onMessage)
     
@@ -196,7 +158,7 @@ module.exports = ->
                 if cfg.debugOutput and window.console?.log?
                     # try to stringify, if it doesn't work we'll let javascript's built in toString do its magic
                     try
-                        m = JSON.stringify(m) if typeof m isnt "string"
+                        m = JSON.stringify(m) unless _.isString(m)
                     
                     console.log "[#{chanId}] #{m}"
             
@@ -214,17 +176,15 @@ module.exports = ->
             
             # let's require that the client specify an origin. if we just assume '*' we'll be
             # propagating unsafe practices. that would be lame.
-            validOrigin = false
-            if typeof cfg.origin is "string"
-                oMatch = undefined
-                if cfg.origin is "*"
-                    validOrigin = yes
-                # allow valid domains under http and https.    Also, trim paths off otherwise valid origins.
-                else if null isnt (oMatch = cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/))
-                    cfg.origin = oMatch[0].toLowerCase()
-                    validOrigin = yes
-            
-            throw ("Channel.build() called with an invalid origin") unless validOrigin
+            if _.isString cfg.origin
+                oMatch = cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/)
+                switch
+                    # allow valid domains under http and https.    Also, trim paths off otherwise valid origins.
+                    when oMatch isnt null
+                        cfg.origin = oMatch[0].toLowerCase()
+
+                    when cfg.origin isnt '*'
+                        throw "Channel.build() called with an invalid origin"
             
             if cfg.scope
                 throw "scope, when specified, must be a string" if typeof cfg.scope isnt "string"
@@ -254,21 +214,17 @@ module.exports = ->
                 
                 return {
                     'origin': origin
+                    
                     'invoke': (callback, params) ->
                         # verify in table
                         throw "attempting to invoke a callback of a nonexistent transaction: #{id}" unless inTbl[id]
+                        
                         # verify that the callback name is valid
-                        valid = no
-                        
-                        for cb in callbacks when cb is callback
-                            valid = yes
-                            break
-
-                        throw "request supports no such callback '#{callback}'" unless valid
-                        
-                        # send callback invocation
-                        postMessage { id, params, callback }
-
+                        if do ( -> ( return yes for cb in callbacks when cb is callback ) )
+                            # send callback invocation
+                            postMessage { id, params, callback }
+                        else
+                            throw "request supports no such callback '#{callback}'"
 
                     'error': (error, message) ->
                         completed = yes
@@ -282,8 +238,7 @@ module.exports = ->
                         # send error
                         postMessage { id, error, message }
 
-
-                    'complete': (v) ->
+                    'complete': (result) ->
                         completed = yes
                         
                         # verify in table
@@ -293,15 +248,10 @@ module.exports = ->
                         delete inTbl[id]
 
                         # send complete
-                        postMessage {
-                            id
-                            'result': v
-                        }
-
+                        postMessage { id, result }
 
                     'delayReturn': (delay) ->
-                        shouldDelayReturn = (delay is yes) if typeof delay is "boolean"
-                        shouldDelayReturn
+                        (delay is yes) if _.isBoolean delay
 
                     'completed': ->
                         completed
@@ -318,121 +268,124 @@ module.exports = ->
                 ), timeout
 
             onMessage = (origin, method, m) ->
-                # if an observer was specified at allocation time, invoke it
-                if typeof cfg.gotMessageObserver is "function"
-                    # pass observer a clone of the object so that our
-                    # manipulations are not visible (i.e. method unscoping).
-                    # This is not particularly efficient, but then we expect
-                    # that message observers are primarily for debugging anyway.
-                    try
-                        cfg.gotMessageObserver origin, m
-                    catch e
-                        debug "gotMessageObserver() raised an exception: #{e.toString()}"
-                
-                # now, what type of message is this?
-                if m.id and method
-                    # a request! do we have a registered handler for this request?
-                    if regTbl[method]
-                        trans = createTransaction(m.id, origin, (if m.callbacks then m.callbacks else []))
-                        inTbl[m.id] = {}
-                        
+                switch
+                    # if an observer was specified at allocation time, invoke it
+                    when _.isFunction cfg.gotMessageObserver
+                        # pass observer a clone of the object so that our
+                        # manipulations are not visible (i.e. method unscoping).
+                        # This is not particularly efficient, but then we expect
+                        # that message observers are primarily for debugging anyway.
                         try
-                            # callback handling. we'll magically create functions inside the parameter list for each
-                            # callback
-                            if m.callbacks and s_isArray(m.callbacks) and not m.callbacks.length
-                                obj = m.params
-                                pathItems = path.split("/")
-                                for path in m.callbacks
-                                    for cp in pathItems[...-1]
-                                        obj[cp] = {} if typeof obj[cp] isnt "object"
-                                        obj = obj[cp]
-                                    
-                                    obj[pathItems[pathItems.length - 1]] = do ->
-                                        cbName = path
-                                        (params) ->
-                                            trans.invoke cbName, params
-                            
-                            resp = regTbl[method](trans, m.params)
-                            trans.complete resp if not do trans.delayReturn and not do trans.completed
-                        
+                            cfg.gotMessageObserver origin, m
                         catch e
-                            # automagic handling of exceptions:
-                            error = "runtime_error"
-                            message = null
+                            debug "gotMessageObserver() raised an exception: #{e.toString()}"
+                    
+                    # now, what type of message is this?
+                    when m.id and method
+                        # a request! do we have a registered handler for this request?
+                        if regTbl[method]
+                            trans = createTransaction(m.id, origin, (m.callbacks or []))
+                            inTbl[m.id] = {}
                             
-                            # * if it's a string then it gets an error code of 'runtime_error' and string is the message
-                            if typeof e is "string"
-                                message = e
-                            else if typeof e is "object"
-                                # either an array or an object
-                                # * if it's an array of length two, then array[0] is the code, array[1] is the error message
-                                if e and s_isArray(e) and e.length is 2
-                                    [ error, message ] = e
+                            try
+                                # callback handling. we'll magically create functions inside the parameter list for each
+                                # callback
+                                if m.callbacks and _.isArray(m.callbacks) and not m.callbacks.length
+                                    obj = m.params
+                                    pathItems = path.split("/")
+                                    for path in m.callbacks
+                                        for cp in pathItems[...-1]
+                                            obj[cp] = {} unless _.isObject obj[cp]
+                                            obj = obj[cp]
+                                        
+                                        obj[pathItems[pathItems.length - 1]] = do ->
+                                            cbName = path
+                                            (params) ->
+                                                trans.invoke cbName, params
                                 
-                                # * if it's an object then we'll look form error and message parameters
-                                else if typeof e.error is "string"
-                                    error = e.error
-                                    unless e.message
-                                        message = ""
-                                    else if typeof e.message is "string"
-                                        message = e.message
-                                    # let the stringify/toString message give us a reasonable verbose error string
-                                    else
-                                        e = e.message
+                                resp = regTbl[method](trans, m.params)
+                                trans.complete resp if not do trans.delayReturn and not do trans.completed
                             
-                            # message is *still* null, let's try harder
-                            if message is null
-                                try
-                                    message = JSON.stringify(e)
-                                    # On MSIE8, this can result in 'out of memory', which leaves message undefined. 
-                                    message = do e.toString if typeof (message) is "undefined"
-                                catch e2
-                                    message = do e.toString
-                            
-                            trans.error error, message
-                
-                else if m.id and m.callback
-                    if not outTbl[m.id] or not outTbl[m.id].callbacks or not outTbl[m.id].callbacks[m.callback]
-                        debug "ignoring invalid callback, id: #{m.id} (#{m.callback})"
-                    else
-                        # XXX: what if client code raises an exception here?
-                        outTbl[m.id].callbacks[m.callback] m.params
-                
-                else if m.id
-                    unless outTbl[m.id]
-                        debug "ignoring invalid response: #{m.id}"
-                    else
-                        # XXX: what if client code raises an exception here?
-                        { error, message, id, result } = m
-                        # Has error happened?
-                        if error
-                            outTbl[id].error error, message if outTbl[id].error
-                        # Call success handler.
+                            catch e
+                                # automagic handling of exceptions:
+                                error = "runtime_error"
+                                message = null
+                                
+                                # * if it's a string then it gets an error code of 'runtime_error' and string is the message
+                                if _.isString e
+                                    message = e
+                                
+                                else if _.isObject e
+                                    # either an array or an object
+                                    # * if it's an array of length two, then array[0] is the code, array[1] is the error message
+                                    if _.isArray e
+                                        [ error, message ] = e
+                                    
+                                    # * if it's an object then we'll look form error and message parameters
+                                    else if _.isString e.error
+                                        error = e.error
+                                        switch
+                                            when not e.message
+                                                message = ""
+                                            
+                                            when _.isString e.message
+                                                message = e.message
+                                            
+                                            # let the stringify/toString message give us a reasonable verbose error string
+                                            else
+                                                e = e.message
+                                
+                                # message is *still* null, let's try harder
+                                if message is null
+                                    try
+                                        message = JSON.stringify(e)
+                                        # On MSIE8, this can result in 'out of memory', which leaves message undefined. 
+                                        message = do e.toString if _.isUndefined message
+                                    catch e2
+                                        message = do e.toString
+                                
+                                trans.error error, message
+                    
+                    when m.id and m.callback
+                        if not outTbl[m.id] or not outTbl[m.id].callbacks or not outTbl[m.id].callbacks[m.callback]
+                            debug "ignoring invalid callback, id: #{m.id} (#{m.callback})"
                         else
-                            outTbl[id].success result or null
-                        
-                        delete outTbl[id]
-                        delete s_transIds[id]
-                
-                else if method
-                    # tis a notification.
-                    if regTbl[method]
-                        # yep, there's a handler for that.
-                        # transaction has only origin for notifications.
-                        regTbl[method] { origin }, m.params
-
+                            # XXX: what if client code raises an exception here?
+                            outTbl[m.id].callbacks[m.callback] m.params
+                    
+                    when m.id
+                        unless outTbl[m.id]
+                            debug "ignoring invalid response: #{m.id}"
+                        else
+                            # XXX: what if client code raises an exception here?
+                            { error, message, id, result } = m
+                            # Has error happened?
+                            if error
+                                outTbl[id].error error, message if outTbl[id].error
+                            # Call success handler.
+                            else
+                                outTbl[id].success result or null
+                            
+                            delete outTbl[id]
+                            delete s_transIds[id]
+                    
+                    when method
+                        # tis a notification.
+                        if regTbl[method]
+                            # yep, there's a handler for that.
+                            # transaction has only origin for notifications.
+                            regTbl[method] { origin }, m.params
             
             # if the client throws, we'll just let it bubble out
             # what can we do? Also, here we'll ignore return values
             
             # now register our bound channel for msg routing
-            msg = if typeof cfg.scope is "string" then cfg.scope else ''
+            msg = if _.isString(cfg.scope) then cfg.scope else ''
             s_addBoundChan cfg.window, cfg.origin, msg, onMessage
             
             # scope method names based on cfg.scope specified when the Channel was instantiated
             scopeMethod = (m) ->
-                m = [cfg.scope, m].join("::") if typeof cfg.scope is "string" and cfg.scope.length
-                m
+                [ cfg.scope, m ].join("::") if _.isString(cfg.scope) and cfg.scope.length
             
             # a small wrapper around postmessage whose primary function is to handle the
             # case that clients start sending messages before the other end is "ready"
@@ -446,7 +399,7 @@ module.exports = ->
                 if not force and not ready
                     pendingQueue.push msg
                 else
-                    if typeof cfg.postMessageObserver is "function"
+                    if _.isFunction cfg.postMessageObserver
                         try
                             cfg.postMessageObserver cfg.origin, msg
                         catch e
@@ -464,12 +417,13 @@ module.exports = ->
                 debug "ready msg accepted."
                 
                 if type is "ping"
-                    obj.notify
+                    obj.notify {
                         'method': "__ready"
                         'params': "pong"
+                    }
 
                 # flush queue
-                postMessage do pendingQueue.pop while pendingQueue.length
+                ( postMessage do pendingQueue.pop while pendingQueue.length )
                 
                 # invoke onReady observer if provided
                 cfg.onReady obj if typeof cfg.onReady is "function"
@@ -483,17 +437,17 @@ module.exports = ->
                     no
 
                 'bind': (method, cb) ->
-                    throw "'method' argument to bind must be string" if not method or typeof method isnt "string"
-                    throw "callback missing from bind params" if not cb or typeof cb isnt "function"
+                    throw "'method' argument to bind must be string" if not method or not _.isString method
+                    throw "callback missing from bind params" if not cb or not _.isFunction cb
                     throw "method '#{method}' is already bound!" if regTbl[method]
                     regTbl[method] = cb
                     @
 
                 'call': (m) ->
                     throw "missing arguments to call function" unless m
-                    throw "'method' argument to call must be string" if not m.method or typeof m.method isnt "string"
-                    throw "'success' callback missing from call" if not m.success or typeof m.success isnt "function"
-                    throw "'error' callback missing from call" if not m.error or typeof m.error isnt "function"
+                    throw "'method' argument to call must be string" unless _.isString m.method
+                    throw "'success' callback missing from call" unless _.isFunction m.success
+                    throw "'error' callback missing from call" unless _.isFunction m.error
                     
                     # now it's time to support the 'callback' feature of jschannel.    We'll traverse the argument
                     # object and pick out all of the functions that were passed as arguments.
@@ -505,29 +459,30 @@ module.exports = ->
                         throw "params cannot be a recursive data structure" if obj in seen
                         seen.push obj
                         
-                        if typeof obj is "object"
-                            for k of obj when obj.hasOwnProperty(k)
+                        if _.isObject obj
+                            for k of obj when _.has(obj, k)
                                 np = path + (if path.length then "/" else "") + k
-                                if typeof obj[k] is "function"
+                                if _.isFunction obj[k]
                                     callbacks[np] = obj[k]
                                     callbackNames.push np
                                     delete obj[k]
-                                else pruneFunctions np, obj[k] if typeof obj[k] is "object"
+                                else pruneFunctions np, obj[k] if _.isObject obj[k]
 
                     pruneFunctions "", m.params
                     
                     # build a 'request' message and send it
-                    msg =
+                    msg = {
                         'id': s_curTranId
                         'method': scopeMethod(m.method)
                         'params': m.params
+                    }
 
                     msg.callbacks = callbackNames if callbackNames.length
                     
                     # XXX: This function returns a timeout ID, but we don't do anything with it.
                     # We might want to keep track of it so we can cancel it using clearTimeout()
                     # when the transaction completes.
-                    setTransactionTimeout s_curTranId, m.timeout, scopeMethod(m.method) if m.timeout
+                    setTransactionTimeout(s_curTranId, m.timeout, scopeMethod(m.method)) if m.timeout
                     
                     # insert into the transaction table
                     { error, success } = m
@@ -541,7 +496,7 @@ module.exports = ->
 
                 'notify': (m) ->
                     throw "missing arguments to notify function" unless m
-                    throw "'method' argument to notify must be string" if not m.method or typeof m.method isnt "string"
+                    throw "'method' argument to notify must be string" unless _.isString m.method
                     
                     # no need to go into any transaction table
                     postMessage {
@@ -551,11 +506,15 @@ module.exports = ->
 
 
                 'destroy': ->
-                    scope = if typeof cfg.scope is 'string' then cfg.scope else ''
+                    scope = if _.isString(cfg.scope) then cfg.scope else ''
                     s_removeBoundChan cfg.window, cfg.origin, scope
-                    if 'removeEventListener' of window
-                        window.removeEventListener "message", onMessage, no
-                    else window.detachEvent "onmessage", onMessage if window.detachEvent
+
+                    switch
+                        when 'removeEventListener' of window
+                            window.removeEventListener "message", onMessage, no
+
+                        when 'detachEvent' of window
+                            window.detachEvent "onmessage", onMessage
                     
                     ready = no
                     regTbl = {}
@@ -569,12 +528,12 @@ module.exports = ->
             }
 
             obj.bind "__ready", onReady
-            # Should be a process.nextTick
-            setTimeout ( ->
+            
+            nextTick ->
                 postMessage {
                     'method': scopeMethod("__ready")
                     'params': "ping"
                 }, true
-            ), 0
+            
             obj
     }
