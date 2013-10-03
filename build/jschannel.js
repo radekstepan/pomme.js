@@ -84,7 +84,7 @@
     };
     s_transIds = {};
     s_onMessage = function(e) {
-      var ar, delivered, i, j, m, meth, meth , o, s, w,  s, _i, _j, _ref, _ref1, _results;
+      var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _ref, _ref1, _results;
       try {
         m = JSON.parse(e.data);
         if (typeof m !== "object" || m === null) {
@@ -101,7 +101,7 @@
       if (typeof m.method === "string") {
         ar = m.method.split("::");
         if (ar.length === 2) {
-           s = ar[0], meth  = ar[1];
+          s = ar[0], meth = ar[1];
         } else {
           meth = m.method;
         }
@@ -272,7 +272,7 @@
           }), timeout);
         };
         onMessage = function(origin, method, m) {
-          var cp, error, message, obj, path, pathItems, resp, trans,  error, _i, _j, _len, _len1, _ref, _ref1;
+          var cp, error, message, obj, path, pathItems, resp, trans, _i, _j, _len, _len1, _ref, _ref1;
           if (typeof cfg.gotMessageObserver === "function") {
             try {
               cfg.gotMessageObserver(origin, m);
@@ -319,7 +319,7 @@
                   message = e;
                 } else if (typeof e === "object") {
                   if (e && s_isArray(e) && e.length === 2) {
-                     error = e[0], message = e[1];
+                    error = e[0], message = e[1];
                   } else if (typeof e.error === "string") {
                     error = e.error;
                     if (!e.message) {

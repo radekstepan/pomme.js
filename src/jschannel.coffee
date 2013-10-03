@@ -118,7 +118,7 @@ root.Channel = do ->
         if typeof m.method is "string"
             ar = m.method.split("::")
             if ar.length is 2
-                [ s, meth ] = ar
+                [ s, meth ] = ar
             else
                 meth = m.method
         
@@ -371,7 +371,7 @@ root.Channel = do ->
                                 # either an array or an object
                                 # * if it's an array of length two, then array[0] is the code, array[1] is the error message
                                 if e and s_isArray(e) and e.length is 2
-                                    [ error, message ] = e
+                                    [ error, message ] = e
                                 
                                 # * if it's an object then we'll look form error and message parameters
                                 else if typeof e.error is "string"
