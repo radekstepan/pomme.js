@@ -15,12 +15,13 @@
     <iframe id="child" src="iframe.html"></iframe>
     <script>
     (function() {
-        var sam = require('samskipti');
+        var Sam = require('samskipti');
         
-        var chan = sam().build({
+        var chan = new Sam({
             'window': document.getElementById("child").contentWindow,
             'origin': "*",
-            'scope': "testScope"
+            'scope': "testScope",
+            'debugOutput': true
         });
         
         chan.call({

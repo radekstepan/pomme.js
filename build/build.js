@@ -6963,563 +6963,597 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/samskipti.js", function(exports, require, module){
-var nextTick, _,
+var Samskipti, nextTick, s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 _ = require('lodash');
 
 nextTick = require('next-tick');
 
-module.exports = function() {
-  var s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds;
-  s_curTranId = Math.floor(Math.random() * 1000001);
-  s_boundChans = {};
-  s_addBoundChan = function(win, origin, scope, handler) {
-    var exists, hasWin, k;
-    hasWin = function(arr) {
-      var x, _i, _len;
-      for (_i = 0, _len = arr.length; _i < _len; _i++) {
-        x = arr[_i];
-        if (x.win === win) {
-          return true;
-        }
+s_curTranId = Math.floor(Math.random() * 1000001);
+
+s_boundChans = {};
+
+s_addBoundChan = function(win, origin, scope, handler) {
+  var exists, hasWin, k;
+  hasWin = function(arr) {
+    var x, _i, _len;
+    for (_i = 0, _len = arr.length; _i < _len; _i++) {
+      x = arr[_i];
+      if (x.win === win) {
+        return true;
       }
-      return false;
-    };
-    exists = false;
-    if (origin === "*") {
-      for (k in s_boundChans) {
-        if (_.has(s_boundChans, k) && k !== '*') {
-          if (_.isObject(s_boundChans[k][scope])) {
-            if (exists = hasWin(s_boundChans[k][scope])) {
-              break;
-            }
+    }
+    return false;
+  };
+  exists = false;
+  if (origin === "*") {
+    for (k in s_boundChans) {
+      if (_.has(s_boundChans, k) && k !== '*') {
+        if (_.isObject(s_boundChans[k][scope])) {
+          if (exists = hasWin(s_boundChans[k][scope])) {
+            break;
           }
         }
       }
+    }
+  } else {
+    if (s_boundChans["*"] && s_boundChans["*"][scope]) {
+      exists = hasWin(s_boundChans["*"][scope]);
+    }
+    if (!exists && s_boundChans[origin] && s_boundChans[origin][scope]) {
+      exists = hasWin(s_boundChans[origin][scope]);
+    }
+  }
+  if (exists) {
+    throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
+  }
+  if (!_.isObject(s_boundChans[origin])) {
+    s_boundChans[origin] = {};
+  }
+  if (!_.isObject(s_boundChans[origin][scope])) {
+    s_boundChans[origin][scope] = [];
+  }
+  return s_boundChans[origin][scope].push({
+    win: win,
+    handler: handler
+  });
+};
+
+s_removeBoundChan = function(win, origin, scope) {
+  var x;
+  s_boundChans[origin][scope] = (function() {
+    var _i, _len, _ref, _results;
+    _ref = s_boundChans[origin][scope];
+    _results = [];
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      x = _ref[_i];
+      if (x.win === win) {
+        _results.push(x);
+      }
+    }
+    return _results;
+  })();
+  if (!s_boundChans[origin][scope].length) {
+    return delete s_boundChans[origin][scope];
+  }
+};
+
+s_transIds = {};
+
+s_onMessage = function(e) {
+  var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _ref, _ref1, _results;
+  try {
+    m = JSON.parse(e.data);
+    if (m === null || !_.isObject(m)) {
+      throw "malformed";
+    }
+  } catch (_error) {
+    e = _error;
+    return;
+  }
+  w = e.source;
+  o = e.origin;
+  s = void 0;
+  i = void 0;
+  meth = void 0;
+  if (typeof m.method === "string") {
+    ar = m.method.split("::");
+    if (ar.length === 2) {
+      s = ar[0], meth = ar[1];
     } else {
-      if (s_boundChans["*"] && s_boundChans["*"][scope]) {
-        exists = hasWin(s_boundChans["*"][scope]);
-      }
-      if (!exists && s_boundChans[origin] && s_boundChans[origin][scope]) {
-        exists = hasWin(s_boundChans[origin][scope]);
-      }
+      meth = m.method;
     }
-    if (exists) {
-      throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
-    }
-    if (!_.isObject(s_boundChans[origin])) {
-      s_boundChans[origin] = {};
-    }
-    if (!_.isObject(s_boundChans[origin][scope])) {
-      s_boundChans[origin][scope] = [];
-    }
-    return s_boundChans[origin][scope].push({
-      win: win,
-      handler: handler
-    });
-  };
-  s_removeBoundChan = function(win, origin, scope) {
-    var x;
-    s_boundChans[origin][scope] = (function() {
-      var _i, _len, _ref, _results;
-      _ref = s_boundChans[origin][scope];
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        x = _ref[_i];
-        if (x.win === win) {
-          _results.push(x);
+  }
+  if (m.id) {
+    i = m.id;
+  }
+  switch (false) {
+    case !_.isString(meth):
+      delivered = false;
+      if (s_boundChans[o] && s_boundChans[o][s]) {
+        for (j = _i = 0, _ref = s_boundChans[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
+          if (!(s_boundChans[o][s][j].win === w)) {
+            continue;
+          }
+          s_boundChans[o][s][j].handler(o, meth, m);
+          delivered = true;
+          break;
         }
       }
-      return _results;
+      if (!delivered && s_boundChans["*"] && s_boundChans["*"][s]) {
+        _results = [];
+        for (j = _j = 0, _ref1 = s_boundChans["*"][s].length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
+          if (!(s_boundChans['*'][s][j].win === w)) {
+            continue;
+          }
+          s_boundChans["*"][s][j].handler(o, meth, m);
+          break;
+        }
+        return _results;
+      }
+      break;
+    case !i:
+      if (s_transIds[i]) {
+        return s_transIds[i](o, meth, m);
+      }
+  }
+};
+
+switch (false) {
+  case !('addEventListener' in window):
+    window.addEventListener('message', s_onMessage, false);
+    break;
+  case !('attachEvent' in window):
+    window.attachEvent('onmessage', s_onMessage);
+}
+
+Samskipti = (function() {
+  Samskipti.prototype.ready = false;
+
+  function Samskipti(cfg) {
+    var msg, oMatch,
+      _this = this;
+    this.cfg = cfg;
+    this.onReady = __bind(this.onReady, this);
+    this.onMessage = __bind(this.onMessage, this);
+    if (!('postMessage' in window)) {
+      throw "jschannel cannot run this browser, no postMessage";
+    }
+    if (!_.isObject(this.cfg)) {
+      throw "Channel build invoked without a proper object argument";
+    }
+    if (!this.cfg.window || !this.cfg.window.postMessage) {
+      throw "Channel.build() called without a valid root argument";
+    }
+    if (window === this.cfg.window) {
+      throw "target root is same as present root -- not allowed";
+    }
+    if (_.isString(this.cfg.origin)) {
+      oMatch = this.cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/);
+      switch (false) {
+        case oMatch === null:
+          this.cfg.origin = oMatch[0].toLowerCase();
+          break;
+        case this.cfg.origin === '*':
+          throw "Channel.build() called with an invalid origin";
+      }
+    }
+    if (this.cfg.scope) {
+      if (typeof this.cfg.scope !== "string") {
+        throw "scope, when specified, must be a string";
+      }
+      if (this.cfg.scope.split("::").length > 1) {
+        throw "scope may not contain double colons: '::'";
+      }
+    }
+    this.chanId = (function() {
+      var alpha, i, text, _i;
+      text = "";
+      alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      for (i = _i = 0; _i < 5; i = ++_i) {
+        text += alpha.charAt(Math.floor(Math.random() * alpha.length));
+      }
+      return text;
     })();
-    if (!s_boundChans[origin][scope].length) {
-      return delete s_boundChans[origin][scope];
+    this.regTbl = {};
+    this.outTbl = {};
+    this.inTbl = {};
+    this.pendingQueue = [];
+    msg = _.isString(this.cfg.scope) ? this.cfg.scope : '';
+    s_addBoundChan(this.cfg.window, this.cfg.origin, msg, this.onMessage);
+    this.bind("__ready", this.onReady);
+    nextTick(function() {
+      return _this.postMessage({
+        'method': _this.scopeMethod("__ready"),
+        'params': "ping"
+      }, true);
+    });
+  }
+
+  Samskipti.prototype.debug = function(m) {
+    var _ref;
+    if (this.cfg.debugOutput && (((_ref = window.console) != null ? _ref.log : void 0) != null)) {
+      try {
+        if (!_.isString(m)) {
+          m = JSON.stringify(m);
+        }
+      } catch (_error) {}
+      return console.log("[" + this.chanId + "] " + m);
     }
   };
-  s_transIds = {};
-  s_onMessage = function(e) {
-    var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _ref, _ref1, _results;
-    try {
-      m = JSON.parse(e.data);
-      if (m === null || !_.isObject(m)) {
-        throw "malformed";
-      }
-    } catch (_error) {
-      e = _error;
-      return;
-    }
-    w = e.source;
-    o = e.origin;
-    s = void 0;
-    i = void 0;
-    meth = void 0;
-    if (typeof m.method === "string") {
-      ar = m.method.split("::");
-      if (ar.length === 2) {
-        s = ar[0], meth = ar[1];
-      } else {
-        meth = m.method;
-      }
-    }
-    if (m.id) {
-      i = m.id;
-    }
-    switch (false) {
-      case !_.isString(meth):
-        delivered = false;
-        if (s_boundChans[o] && s_boundChans[o][s]) {
-          for (j = _i = 0, _ref = s_boundChans[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
-            if (!(s_boundChans[o][s][j].win === w)) {
-              continue;
-            }
-            s_boundChans[o][s][j].handler(o, meth, m);
-            delivered = true;
-            break;
-          }
+
+  Samskipti.prototype.createTransaction = function(id, origin, callbacks) {
+    var completed, shouldDelayReturn,
+      _this = this;
+    shouldDelayReturn = false;
+    completed = false;
+    return {
+      'origin': origin,
+      'invoke': function(callback, params) {
+        if (!_this.inTbl[id]) {
+          throw "attempting to invoke a callback of a nonexistent transaction: " + id;
         }
-        if (!delivered && s_boundChans["*"] && s_boundChans["*"][s]) {
-          _results = [];
-          for (j = _j = 0, _ref1 = s_boundChans["*"][s].length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
-            if (!(s_boundChans['*'][s][j].win === w)) {
-              continue;
+        if ((function() {
+          var cb, _i, _len;
+          for (_i = 0, _len = callbacks.length; _i < _len; _i++) {
+            cb = callbacks[_i];
+            if (cb === callback) {
+              return true;
             }
-            s_boundChans["*"][s][j].handler(o, meth, m);
-            break;
           }
-          return _results;
+        })()) {
+          return _this.postMessage({
+            id: id,
+            params: params,
+            callback: callback
+          });
+        } else {
+          throw "request supports no such callback '" + callback + "'";
+        }
+      },
+      'error': function(error, message) {
+        completed = true;
+        if (!_this.inTbl[id]) {
+          throw "error called for nonexistent message: " + id;
+        }
+        delete _this.inTbl[id];
+        return _this.postMessage({
+          id: id,
+          error: error,
+          message: message
+        });
+      },
+      'complete': function(result) {
+        completed = true;
+        if (!_this.inTbl[id]) {
+          throw "complete called for nonexistent message: " + id;
+        }
+        delete _this.inTbl[id];
+        return _this.postMessage({
+          id: id,
+          result: result
+        });
+      },
+      'delayReturn': function(delay) {
+        if (_.isBoolean(delay)) {
+          return delay === true;
+        }
+      },
+      'completed': function() {
+        return completed;
+      }
+    };
+  };
+
+  Samskipti.prototype.setTransactionTimeout = function(transId, timeout, method) {
+    return window.setTimeout((function() {
+      var msg;
+      if (this.outTbl[transId]) {
+        msg = "timeout (" + timeout + "ms) exceeded on method '" + method + "'";
+        this.outTbl[transId].error("timeout_error", msg);
+        delete this.outTbl[transId];
+        return delete s_transIds[transId];
+      }
+    }), timeout);
+  };
+
+  Samskipti.prototype.onMessage = function(origin, method, m) {
+    var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, trans, _i, _j, _len, _len1, _ref, _ref1;
+    switch (false) {
+      case !_.isFunction(this.cfg.gotMessageObserver):
+        try {
+          return this.cfg.gotMessageObserver(origin, m);
+        } catch (_error) {
+          e = _error;
+          return this.debug("gotMessageObserver() raised an exception: " + (e.toString()));
         }
         break;
-      case !i:
-        if (s_transIds[i]) {
-          return s_transIds[i](o, meth, m);
-        }
-    }
-  };
-  switch (false) {
-    case !('addEventListener' in window):
-      window.addEventListener('message', s_onMessage, false);
-      break;
-    case !('attachEvent' in window):
-      window.attachEvent('onmessage', s_onMessage);
-  }
-  return {
-    'build': function(cfg) {
-      var chanId, createTransaction, debug, inTbl, msg, oMatch, obj, onMessage, onReady, outTbl, pendingQueue, postMessage, ready, regTbl, scopeMethod, setTransactionTimeout;
-      debug = function(m) {
-        var _ref;
-        if (cfg.debugOutput && (((_ref = window.console) != null ? _ref.log : void 0) != null)) {
+      case !(m.id && method):
+        if (this.regTbl[method]) {
+          trans = this.createTransaction(m.id, origin, m.callbacks || []);
+          this.inTbl[m.id] = {};
           try {
-            if (!_.isString(m)) {
-              m = JSON.stringify(m);
+            if (m.callbacks && _.isArray(m.callbacks) && !m.callbacks.length) {
+              obj = m.params;
+              pathItems = path.split("/");
+              _ref = m.callbacks;
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                path = _ref[_i];
+                _ref1 = pathItems.slice(0, -1);
+                for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+                  cp = _ref1[_j];
+                  if (!_.isObject(obj[cp])) {
+                    obj[cp] = {};
+                  }
+                  obj = obj[cp];
+                }
+                obj[pathItems[pathItems.length - 1]] = (function() {
+                  var cbName;
+                  cbName = path;
+                  return function(params) {
+                    return trans.invoke(cbName, params);
+                  };
+                })();
+              }
             }
-          } catch (_error) {}
-          return console.log("[" + chanId + "] " + m);
-        }
-      };
-      if (window === cfg.window) {
-        throw "target root is same as present root -- not allowed";
-      }
-      if (_.isString(cfg.origin)) {
-        oMatch = cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/);
-        switch (false) {
-          case oMatch === null:
-            cfg.origin = oMatch[0].toLowerCase();
-            break;
-          case cfg.origin === '*':
-            throw "Channel.build() called with an invalid origin";
-        }
-      }
-      if (cfg.scope) {
-        if (typeof cfg.scope !== "string") {
-          throw "scope, when specified, must be a string";
-        }
-        if (cfg.scope.split("::").length > 1) {
-          throw "scope may not contain double colons: '::'";
-        }
-      }
-      chanId = (function() {
-        var alpha, i, text, _i;
-        text = "";
-        alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        for (i = _i = 0; _i < 5; i = ++_i) {
-          text += alpha.charAt(Math.floor(Math.random() * alpha.length));
-        }
-        return text;
-      })();
-      regTbl = {};
-      outTbl = {};
-      inTbl = {};
-      ready = false;
-      pendingQueue = [];
-      createTransaction = function(id, origin, callbacks) {
-        var completed, shouldDelayReturn;
-        shouldDelayReturn = false;
-        completed = false;
-        return {
-          'origin': origin,
-          'invoke': function(callback, params) {
-            if (!inTbl[id]) {
-              throw "attempting to invoke a callback of a nonexistent transaction: " + id;
+            resp = this.regTbl[method](trans, m.params);
+            if (!trans.delayReturn() && !trans.completed()) {
+              return trans.complete(resp);
             }
-            if ((function() {
-              var cb, _i, _len;
-              for (_i = 0, _len = callbacks.length; _i < _len; _i++) {
-                cb = callbacks[_i];
-                if (cb === callback) {
-                  return true;
+          } catch (_error) {
+            e = _error;
+            error = "runtime_error";
+            message = null;
+            if (_.isString(e)) {
+              message = e;
+            } else if (_.isObject(e)) {
+              if (_.isArray(e)) {
+                error = e[0], message = e[1];
+              } else if (_.isString(e.error)) {
+                error = e.error;
+                switch (false) {
+                  case !!e.message:
+                    message = "";
+                    break;
+                  case !_.isString(e.message):
+                    message = e.message;
+                    break;
+                  default:
+                    e = e.message;
                 }
               }
-            })()) {
-              return postMessage({
-                id: id,
-                params: params,
-                callback: callback
-              });
-            } else {
-              throw "request supports no such callback '" + callback + "'";
             }
-          },
-          'error': function(error, message) {
-            completed = true;
-            if (!inTbl[id]) {
-              throw "error called for nonexistent message: " + id;
-            }
-            delete inTbl[id];
-            return postMessage({
-              id: id,
-              error: error,
-              message: message
-            });
-          },
-          'complete': function(result) {
-            completed = true;
-            if (!inTbl[id]) {
-              throw "complete called for nonexistent message: " + id;
-            }
-            delete inTbl[id];
-            return postMessage({
-              id: id,
-              result: result
-            });
-          },
-          'delayReturn': function(delay) {
-            if (_.isBoolean(delay)) {
-              return delay === true;
-            }
-          },
-          'completed': function() {
-            return completed;
-          }
-        };
-      };
-      setTransactionTimeout = function(transId, timeout, method) {
-        return window.setTimeout((function() {
-          var msg;
-          if (outTbl[transId]) {
-            msg = "timeout (" + timeout + "ms) exceeded on method '" + method + "'";
-            outTbl[transId].error("timeout_error", msg);
-            delete outTbl[transId];
-            return delete s_transIds[transId];
-          }
-        }), timeout);
-      };
-      onMessage = function(origin, method, m) {
-        var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, trans, _i, _j, _len, _len1, _ref, _ref1;
-        switch (false) {
-          case !_.isFunction(cfg.gotMessageObserver):
-            try {
-              return cfg.gotMessageObserver(origin, m);
-            } catch (_error) {
-              e = _error;
-              return debug("gotMessageObserver() raised an exception: " + (e.toString()));
-            }
-            break;
-          case !(m.id && method):
-            if (regTbl[method]) {
-              trans = createTransaction(m.id, origin, m.callbacks || []);
-              inTbl[m.id] = {};
+            if (message === null) {
               try {
-                if (m.callbacks && _.isArray(m.callbacks) && !m.callbacks.length) {
-                  obj = m.params;
-                  pathItems = path.split("/");
-                  _ref = m.callbacks;
-                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                    path = _ref[_i];
-                    _ref1 = pathItems.slice(0, -1);
-                    for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-                      cp = _ref1[_j];
-                      if (!_.isObject(obj[cp])) {
-                        obj[cp] = {};
-                      }
-                      obj = obj[cp];
-                    }
-                    obj[pathItems[pathItems.length - 1]] = (function() {
-                      var cbName;
-                      cbName = path;
-                      return function(params) {
-                        return trans.invoke(cbName, params);
-                      };
-                    })();
-                  }
-                }
-                resp = regTbl[method](trans, m.params);
-                if (!trans.delayReturn() && !trans.completed()) {
-                  return trans.complete(resp);
+                message = JSON.stringify(e);
+                if (_.isUndefined(message)) {
+                  message = e.toString();
                 }
               } catch (_error) {
-                e = _error;
-                error = "runtime_error";
-                message = null;
-                if (_.isString(e)) {
-                  message = e;
-                } else if (_.isObject(e)) {
-                  if (_.isArray(e)) {
-                    error = e[0], message = e[1];
-                  } else if (_.isString(e.error)) {
-                    error = e.error;
-                    switch (false) {
-                      case !!e.message:
-                        message = "";
-                        break;
-                      case !_.isString(e.message):
-                        message = e.message;
-                        break;
-                      default:
-                        e = e.message;
-                    }
-                  }
-                }
-                if (message === null) {
-                  try {
-                    message = JSON.stringify(e);
-                    if (_.isUndefined(message)) {
-                      message = e.toString();
-                    }
-                  } catch (_error) {
-                    e2 = _error;
-                    message = e.toString();
-                  }
-                }
-                return trans.error(error, message);
+                e2 = _error;
+                message = e.toString();
               }
             }
-            break;
-          case !(m.id && m.callback):
-            if (!outTbl[m.id] || !outTbl[m.id].callbacks || !outTbl[m.id].callbacks[m.callback]) {
-              return debug("ignoring invalid callback, id: " + m.id + " (" + m.callback + ")");
-            } else {
-              return outTbl[m.id].callbacks[m.callback](m.params);
-            }
-            break;
-          case !m.id:
-            if (!outTbl[m.id]) {
-              return debug("ignoring invalid response: " + m.id);
-            } else {
-              error = m.error, message = m.message, id = m.id, result = m.result;
-              if (error) {
-                if (outTbl[id].error) {
-                  outTbl[id].error(error, message);
-                }
-              } else {
-                outTbl[id].success(result || null);
-              }
-              delete outTbl[id];
-              return delete s_transIds[id];
-            }
-            break;
-          case !method:
-            if (regTbl[method]) {
-              return regTbl[method]({
-                origin: origin
-              }, m.params);
-            }
+            return trans.error(error, message);
+          }
         }
-      };
-      msg = _.isString(cfg.scope) ? cfg.scope : '';
-      s_addBoundChan(cfg.window, cfg.origin, msg, onMessage);
-      scopeMethod = function(m) {
-        if (_.isString(cfg.scope) && cfg.scope.length) {
-          return [cfg.scope, m].join("::");
-        }
-      };
-      postMessage = function(msg, force) {
-        var e, verb;
-        if (!msg) {
-          throw "postMessage called with null message";
-        }
-        verb = ready ? "post" : "queue";
-        debug("" + verb + " message: " + (JSON.stringify(msg)));
-        if (!force && !ready) {
-          return pendingQueue.push(msg);
+        break;
+      case !(m.id && m.callback):
+        if (!this.outTbl[m.id] || !this.outTbl[m.id].callbacks || !this.outTbl[m.id].callbacks[m.callback]) {
+          return this.debug("ignoring invalid callback, id: " + m.id + " (" + m.callback + ")");
         } else {
-          if (_.isFunction(cfg.postMessageObserver)) {
-            try {
-              cfg.postMessageObserver(cfg.origin, msg);
-            } catch (_error) {
-              e = _error;
-              debug("postMessageObserver() raised an exception: " + (e.toString()));
+          return this.outTbl[m.id].callbacks[m.callback](m.params);
+        }
+        break;
+      case !m.id:
+        if (!this.outTbl[m.id]) {
+          return this.debug("ignoring invalid response: " + m.id);
+        } else {
+          error = m.error, message = m.message, id = m.id, result = m.result;
+          if (error) {
+            if (this.outTbl[id].error) {
+              this.outTbl[id].error(error, message);
             }
+          } else {
+            this.outTbl[id].success(result || null);
           }
-          return cfg.window.postMessage(JSON.stringify(msg), cfg.origin);
+          delete this.outTbl[id];
+          return delete s_transIds[id];
         }
-      };
-      onReady = function(trans, type) {
-        debug("ready msg received");
-        if (ready) {
-          throw "received ready message while in ready state. help!";
+        break;
+      case !method:
+        if (this.regTbl[method]) {
+          return this.regTbl[method]({
+            origin: origin
+          }, m.params);
         }
-        chanId += type === "ping" ? "-R" : "-L";
-        obj.unbind("__ready");
-        ready = true;
-        debug("ready msg accepted.");
-        if (type === "ping") {
-          obj.notify({
-            'method': "__ready",
-            'params': "pong"
-          });
-        }
-        while (pendingQueue.length) {
-          postMessage(pendingQueue.pop());
-        }
-        if (typeof cfg.onReady === "function") {
-          return cfg.onReady(obj);
-        }
-      };
-      obj = {
-        'unbind': function(method) {
-          if (regTbl[method]) {
-            if (!delete regTbl[method]) {
-              throw "can't delete method: " + method;
-            }
-            return true;
-          }
-          return false;
-        },
-        'bind': function(method, cb) {
-          if (!method || !_.isString(method)) {
-            throw "'method' argument to bind must be string";
-          }
-          if (!cb || !_.isFunction(cb)) {
-            throw "callback missing from bind params";
-          }
-          if (regTbl[method]) {
-            throw "method '" + method + "' is already bound!";
-          }
-          regTbl[method] = cb;
-          return this;
-        },
-        'call': function(m) {
-          var callbackNames, callbacks, error, pruneFunctions, seen, success;
-          if (!m) {
-            throw "missing arguments to call function";
-          }
-          if (!_.isString(m.method)) {
-            throw "'method' argument to call must be string";
-          }
-          if (!_.isFunction(m.success)) {
-            throw "'success' callback missing from call";
-          }
-          if (!_.isFunction(m.error)) {
-            throw "'error' callback missing from call";
-          }
-          callbacks = {};
-          callbackNames = [];
-          seen = [];
-          pruneFunctions = function(path, obj) {
-            var k, np, _results;
-            if (__indexOf.call(seen, obj) >= 0) {
-              throw "params cannot be a recursive data structure";
-            }
-            seen.push(obj);
-            if (_.isObject(obj)) {
-              _results = [];
-              for (k in obj) {
-                if (!(_.has(obj, k))) {
-                  continue;
-                }
-                np = path + (path.length ? "/" : "") + k;
-                if (_.isFunction(obj[k])) {
-                  callbacks[np] = obj[k];
-                  callbackNames.push(np);
-                  _results.push(delete obj[k]);
-                } else {
-                  if (_.isObject(obj[k])) {
-                    _results.push(pruneFunctions(np, obj[k]));
-                  } else {
-                    _results.push(void 0);
-                  }
-                }
-              }
-              return _results;
-            }
-          };
-          pruneFunctions("", m.params);
-          msg = {
-            'id': s_curTranId,
-            'method': scopeMethod(m.method),
-            'params': m.params
-          };
-          if (callbackNames.length) {
-            msg.callbacks = callbackNames;
-          }
-          if (m.timeout) {
-            setTransactionTimeout(s_curTranId, m.timeout, scopeMethod(m.method));
-          }
-          error = m.error, success = m.success;
-          outTbl[s_curTranId] = {
-            callbacks: callbacks,
-            error: error,
-            success: success
-          };
-          s_transIds[s_curTranId] = onMessage;
-          s_curTranId++;
-          return postMessage(msg);
-        },
-        'notify': function(m) {
-          if (!m) {
-            throw "missing arguments to notify function";
-          }
-          if (!_.isString(m.method)) {
-            throw "'method' argument to notify must be string";
-          }
-          return postMessage({
-            'method': scopeMethod(m.method),
-            'params': m.params
-          });
-        },
-        'destroy': function() {
-          var scope;
-          scope = _.isString(cfg.scope) ? cfg.scope : '';
-          s_removeBoundChan(cfg.window, cfg.origin, scope);
-          switch (false) {
-            case !('removeEventListener' in window):
-              window.removeEventListener("message", onMessage, false);
-              break;
-            case !('detachEvent' in window):
-              window.detachEvent("onmessage", onMessage);
-          }
-          ready = false;
-          regTbl = {};
-          inTbl = {};
-          outTbl = {};
-          cfg.origin = null;
-          pendingQueue = [];
-          debug("channel destroyed");
-          return chanId = "";
-        }
-      };
-      obj.bind("__ready", onReady);
-      nextTick(function() {
-        return postMessage({
-          'method': scopeMethod("__ready"),
-          'params': "ping"
-        }, true);
-      });
-      return obj;
     }
   };
-};
+
+  Samskipti.prototype.scopeMethod = function(m) {
+    if (_.isString(this.cfg.scope) && this.cfg.scope.length) {
+      return [this.cfg.scope, m].join("::");
+    }
+  };
+
+  Samskipti.prototype.postMessage = function(msg, force) {
+    var e, verb;
+    if (!msg) {
+      throw "postMessage called with null message";
+    }
+    verb = this.ready ? "post" : "queue";
+    this.debug("" + verb + " message: " + (JSON.stringify(msg)));
+    if (!force && !this.ready) {
+      return this.pendingQueue.push(msg);
+    } else {
+      if (_.isFunction(this.cfg.postMessageObserver)) {
+        try {
+          this.cfg.postMessageObserver(this.cfg.origin, msg);
+        } catch (_error) {
+          e = _error;
+          this.debug("postMessageObserver() raised an exception: " + (e.toString()));
+        }
+      }
+      return this.cfg.window.postMessage(JSON.stringify(msg), this.cfg.origin);
+    }
+  };
+
+  Samskipti.prototype.onReady = function(trans, type) {
+    this.debug("ready msg received");
+    if (this.ready) {
+      throw "received ready message while in ready state. help!";
+    }
+    this.chanId += type === "ping" ? "-R" : "-L";
+    this.unbind("__ready");
+    this.ready = true;
+    this.debug("ready msg accepted.");
+    if (type === "ping") {
+      this.notify({
+        'method': "__ready",
+        'params': "pong"
+      });
+    }
+    while (this.pendingQueue.length) {
+      this.postMessage(this.pendingQueue.pop());
+    }
+    if (_.isFunction(this.cfg.onReady)) {
+      return this.cfg.onReady(this);
+    }
+  };
+
+  Samskipti.prototype.unbind = function(method) {
+    if (this.regTbl[method]) {
+      if (!delete this.regTbl[method]) {
+        throw "can't delete method: " + method;
+      }
+      return true;
+    }
+    return false;
+  };
+
+  Samskipti.prototype.bind = function(method, cb) {
+    if (!method || !_.isString(method)) {
+      throw "'method' argument to bind must be string";
+    }
+    if (!cb || !_.isFunction(cb)) {
+      throw "callback missing from bind params";
+    }
+    if (this.regTbl[method]) {
+      throw "method '" + method + "' is already bound!";
+    }
+    this.regTbl[method] = cb;
+    return this;
+  };
+
+  Samskipti.prototype.call = function(m) {
+    var callbackNames, callbacks, error, msg, pruneFunctions, seen, success;
+    if (!m) {
+      throw "missing arguments to call function";
+    }
+    if (!_.isString(m.method)) {
+      throw "'method' argument to call must be string";
+    }
+    if (!_.isFunction(m.success)) {
+      throw "'success' callback missing from call";
+    }
+    if (!_.isFunction(m.error)) {
+      throw "'error' callback missing from call";
+    }
+    callbacks = {};
+    callbackNames = [];
+    seen = [];
+    pruneFunctions = function(path, obj) {
+      var k, np, _results;
+      if (__indexOf.call(seen, obj) >= 0) {
+        throw "params cannot be a recursive data structure";
+      }
+      seen.push(obj);
+      if (_.isObject(obj)) {
+        _results = [];
+        for (k in obj) {
+          if (!(_.has(obj, k))) {
+            continue;
+          }
+          np = path + (path.length ? "/" : "") + k;
+          if (_.isFunction(obj[k])) {
+            callbacks[np] = obj[k];
+            callbackNames.push(np);
+            _results.push(delete obj[k]);
+          } else {
+            if (_.isObject(obj[k])) {
+              _results.push(pruneFunctions(np, obj[k]));
+            } else {
+              _results.push(void 0);
+            }
+          }
+        }
+        return _results;
+      }
+    };
+    pruneFunctions("", m.params);
+    msg = {
+      'id': s_curTranId,
+      'method': this.scopeMethod(m.method),
+      'params': m.params
+    };
+    if (callbackNames.length) {
+      msg.callbacks = callbackNames;
+    }
+    if (m.timeout) {
+      setTransactionTimeout(s_curTranId, m.timeout, this.scopeMethod(m.method));
+    }
+    error = m.error, success = m.success;
+    this.outTbl[s_curTranId] = {
+      callbacks: callbacks,
+      error: error,
+      success: success
+    };
+    s_transIds[s_curTranId] = this.onMessage;
+    s_curTranId++;
+    return this.postMessage(msg);
+  };
+
+  Samskipti.prototype.notify = function(m) {
+    if (!m) {
+      throw "missing arguments to notify function";
+    }
+    if (!_.isString(m.method)) {
+      throw "'method' argument to notify must be string";
+    }
+    return this.postMessage({
+      'method': this.scopeMethod(m.method),
+      'params': m.params
+    });
+  };
+
+  Samskipti.prototype.destroy = function() {
+    var scope;
+    scope = _.isString(this.cfg.scope) ? this.cfg.scope : '';
+    s_removeBoundChan(this.cfg.window, this.cfg.origin, scope);
+    switch (false) {
+      case !('removeEventListener' in window):
+        window.removeEventListener("message", this.onMessage, false);
+        break;
+      case !('detachEvent' in window):
+        window.detachEvent("onmessage", this.onMessage);
+    }
+    this.ready = false;
+    this.regTbl = {};
+    this.inTbl = {};
+    this.outTbl = {};
+    this.cfg.origin = null;
+    this.pendingQueue = [];
+    this.debug("channel destroyed");
+    return this.chanId = "";
+  };
+
+  return Samskipti;
+
+})();
+
+module.exports = Samskipti;
 
 });
 

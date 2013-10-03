@@ -12,12 +12,13 @@
 <body>
     <script>
     (function() {
-        var sam = require('samskipti');
+        var Sam = require('samskipti');
         
-        var chan = sam().build({
+        var chan = new Sam({
             'window': window.parent,
             'origin': "*",
-            'scope': "testScope"
+            'scope': "testScope",
+            'debugOutput': true
         });
         
         chan.bind("reverse", function(trans, s) {
