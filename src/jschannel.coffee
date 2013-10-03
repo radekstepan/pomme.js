@@ -313,10 +313,7 @@ root.Channel = do ->
                     if outTbl[transId]
                         # XXX: what if client code raises an exception here?
                         msg = "timeout (#{timeout}ms) exceeded on method '#{method}'"
-                        (1
-                        outTbl[transId].error
-                        ) "timeout_error", msg
-                        
+                        outTbl[transId].error "timeout_error", msg
                         delete outTbl[transId]
                         delete s_transIds[transId]
                 ), timeout
@@ -407,22 +404,16 @@ root.Channel = do ->
                         debug "ignoring invalid response: #{m.id}"
                     else
                         # XXX: what if client code raises an exception here?
-                        if m.error
-                            (1
-                            outTbl[m.id].error
-                            ) m.error, m.message
+                        { error, message, id, result } = m
+                        # Has error happened?
+                        if error
+                            outTbl[id].error error, message if outTbl[id].error
+                        # Call success handler.
                         else
-                            if m.result
-                                (1
-                                outTbl[m.id].success
-                                ) m.result
-                            else
-                                (1
-                                outTbl[m.id].success
-                                )()
+                            outTbl[id].success result or null
                         
-                        delete outTbl[m.id]
-                        delete s_transIds[m.id]
+                        delete outTbl[id]
+                        delete s_transIds[id]
                 
                 else if method
                     # tis a notification.
@@ -503,6 +494,7 @@ root.Channel = do ->
                     throw "missing arguments to call function" unless m
                     throw "'method' argument to call must be string" if not m.method or typeof m.method isnt "string"
                     throw "'success' callback missing from call" if not m.success or typeof m.success isnt "function"
+                    throw "'error' callback missing from call" if not m.error or typeof m.error isnt "function"
                     
                     # now it's time to support the 'callback' feature of jschannel.    We'll traverse the argument
                     # object and pick out all of the functions that were passed as arguments.
@@ -579,7 +571,7 @@ root.Channel = do ->
 
             obj.bind "__ready", onReady
             # Should be a process.nextTick
-            setTimeout (->
+            setTimeout ( ->
                 postMessage {
                     'method': scopeMethod("__ready")
                     'params': "ping"

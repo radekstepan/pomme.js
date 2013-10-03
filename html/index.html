@@ -9,7 +9,6 @@
 
     <style>iframe { border: 0; }</style>
 
-    <script src="../original/jschannel.js"></script>
     <script src="../build/jschannel.js"></script>
 </head>
 <body>
@@ -25,6 +24,9 @@
         'params': "hello world!",
         'success': function(v) {
             console.log(v);
+        },
+        'error': function(error, message) {
+
         }
     });
     </script>
