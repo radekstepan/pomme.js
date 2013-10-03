@@ -1,11 +1,10 @@
 _        = require 'lodash'
 nextTick = require 'next-tick'
   
-# current transaction id, start out at a random *odd* number between 1 and a million
-# There is one current transaction counter id per page, and it's shared between
-# channel instances.    That means of all messages posted from a single javascript
-# evaluation context, we'll never have two with the same id.
-s_curTranId = Math.floor do Math.random * 1000001
+# Transaction id.
+s_curTranId = 1
+# Channel id.
+chanId = 0
 
 # no two bound channels in the same javascript evaluation context may have the same origin, scope, and root.
 # futher if two bound channels have the same root and scope, they may not have *overlapping* origins
@@ -101,8 +100,8 @@ s_onMessage = (e) ->
                     break
 
             if not delivered and s_boundChans["*"] and s_boundChans["*"][s]
-                for j in [0...s_boundChans["*"][s].length] when s_boundChans['*'][s][j].win is w
-                    s_boundChans["*"][s][j].handler o, meth, m
+                for j in s_boundChans["*"][s] when j.win is w
+                    j.handler o, meth, m
                     break
     
         # otherwise it must have an id (or be poorly formed
@@ -156,11 +155,7 @@ class Samskipti
         
         # private variables 
         # generate a random and pseudo unique id for this channel
-        @chanId = do ->
-            text = ""
-            alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-            ( text += alpha.charAt(Math.floor(Math.random() * alpha.length)) for i in [0...5] )
-            text
+        @chanId = chanId++
         
         # registrations: mapping method names to call objects
         @regTbl = {}            

@@ -6963,7 +6963,7 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/samskipti.js", function(exports, require, module){
-var Samskipti, Transaction, nextTick, s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds, _,
+var Samskipti, Transaction, chanId, nextTick, s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -6971,7 +6971,9 @@ _ = require('lodash');
 
 nextTick = require('next-tick');
 
-s_curTranId = Math.floor(Math.random() * 1000001);
+s_curTranId = 1;
+
+chanId = 0;
 
 s_boundChans = {};
 
@@ -7043,7 +7045,7 @@ s_removeBoundChan = function(win, origin, scope) {
 s_transIds = {};
 
 s_onMessage = function(e) {
-  var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _ref, _ref1, _results;
+  var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _len, _ref, _ref1, _results;
   try {
     m = JSON.parse(e.data);
     if (m === null || !_.isObject(m)) {
@@ -7083,12 +7085,14 @@ s_onMessage = function(e) {
         }
       }
       if (!delivered && s_boundChans["*"] && s_boundChans["*"][s]) {
+        _ref1 = s_boundChans["*"][s];
         _results = [];
-        for (j = _j = 0, _ref1 = s_boundChans["*"][s].length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; j = 0 <= _ref1 ? ++_j : --_j) {
-          if (!(s_boundChans['*'][s][j].win === w)) {
+        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+          j = _ref1[_j];
+          if (!(j.win === w)) {
             continue;
           }
-          s_boundChans["*"][s][j].handler(o, meth, m);
+          j.handler(o, meth, m);
           break;
         }
         return _results;
@@ -7148,15 +7152,7 @@ Samskipti = (function() {
         throw "scope may not contain double colons: '::'";
       }
     }
-    this.chanId = (function() {
-      var alpha, i, text, _i;
-      text = "";
-      alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      for (i = _i = 0; _i < 5; i = ++_i) {
-        text += alpha.charAt(Math.floor(Math.random() * alpha.length));
-      }
-      return text;
-    })();
+    this.chanId = chanId++;
     this.regTbl = {};
     this.outTbl = {};
     this.inTbl = {};
