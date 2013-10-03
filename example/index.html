@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Parent</title>
+
+    <style>iframe { border: 0; }</style>
+
+    <script src="build.js"></script>
+</head>
+<body>
+    <iframe id="child" src="iframe.html"></iframe>
+    <script>
+    (function() {
+        var sam = require('samskipti');
+        
+        var chan = sam().build({
+            'window': document.getElementById("child").contentWindow,
+            'origin': "*",
+            'scope': "testScope"
+        });
+        
+        chan.call({
+            'method': "reverse",
+            'params': "hello world!",
+            'success': function(v) {
+                console.log(v);
+            },
+            'error': function(error, message) {
+
+            }
+        });
+    })();
+    </script>
+</body>
+</html>

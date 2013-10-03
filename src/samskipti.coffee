@@ -1,4 +1,3 @@
-root = @
 #
 # * js_channel is a very lightweight abstraction on top of
 # * postMessage which defines message formats and semantics
@@ -36,7 +35,7 @@ root = @
 # *        + string method
 # *        + (optional) any params
 # 
-root.Channel = do ->
+module.exports = ->
     
     # current transaction id, start out at a random *odd* number between 1 and a million
     # There is one current transaction counter id per page, and it's shared between
@@ -154,10 +153,10 @@ root.Channel = do ->
     
     # Setup postMessage event listeners
     switch
-        when 'addEventListener' of root
-            root.addEventListener('message', s_onMessage, no)
-        when 'attachEvent' of root
-            root.attachEvent('onmessage', s_onMessage)
+        when 'addEventListener' of window
+            window.addEventListener('message', s_onMessage, no)
+        when 'attachEvent' of window
+            window.attachEvent('onmessage', s_onMessage)
     
     # a messaging channel is constructed from a root and an origin.
     #         * the channel will assert that all messages received over the
@@ -194,7 +193,7 @@ root.Channel = do ->
     return {
         'build': (cfg) ->
             debug = (m) ->
-                if cfg.debugOutput and root.console?.log?
+                if cfg.debugOutput and window.console?.log?
                     # try to stringify, if it doesn't work we'll let javascript's built in toString do its magic
                     try
                         m = JSON.stringify(m) if typeof m isnt "string"
@@ -211,7 +210,7 @@ root.Channel = do ->
             
             # we'd have to do a little more work to be able to run multiple channels that intercommunicate the same
             #                         * root...    Not sure if we care to support that 
-            throw ("target root is same as present root -- not allowed") if root is cfg.window
+            throw ("target root is same as present root -- not allowed") if window is cfg.window
             
             # let's require that the client specify an origin. if we just assume '*' we'll be
             # propagating unsafe practices. that would be lame.
@@ -309,7 +308,7 @@ root.Channel = do ->
                 }
 
             setTransactionTimeout = (transId, timeout, method) ->
-                root.setTimeout ( ->
+                window.setTimeout ( ->
                     if outTbl[transId]
                         # XXX: what if client code raises an exception here?
                         msg = "timeout (#{timeout}ms) exceeded on method '#{method}'"
@@ -554,9 +553,9 @@ root.Channel = do ->
                 'destroy': ->
                     scope = if typeof cfg.scope is 'string' then cfg.scope else ''
                     s_removeBoundChan cfg.window, cfg.origin, scope
-                    if 'removeEventListener' of root
-                        root.removeEventListener "message", onMessage, no
-                    else root.detachEvent "onmessage", onMessage if root.detachEvent
+                    if 'removeEventListener' of window
+                        window.removeEventListener "message", onMessage, no
+                    else window.detachEvent "onmessage", onMessage if window.detachEvent
                     
                     ready = no
                     regTbl = {}

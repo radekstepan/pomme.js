@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Child</title>
+
+    <script src="build.js"></script>
+</head>
+<body>
+    <script>
+    (function() {
+        var sam = require('samskipti');
+        
+        var chan = sam().build({
+            'window': window.parent,
+            'origin': "*",
+            'scope': "testScope"
+        });
+        
+        chan.bind("reverse", function(trans, s) {
+            return s.split("").reverse().join("");
+        });
+    })();
+    </script>
+</body>
+</html>
