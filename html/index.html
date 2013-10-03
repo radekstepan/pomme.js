@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Parent</title>
+
+    <style>iframe { border: 0; }</style>
+
+    <script src="../original/jschannel.js"></script>
+    <script src="../build/jschannel.js"></script>
+</head>
+<body>
+    <iframe id="child" src="iframe.html"></iframe>
+    <script>
+    var chan = Channel.build({
+        'window': document.getElementById("child").contentWindow,
+        'origin': "*",
+        'scope': "testScope"
+    });
+    chan.call({
+        'method': "reverse",
+        'params': "hello world!",
+        'success': function(v) {
+            console.log(v);
+        }
+    });
+    </script>
+</body>
+</html>
