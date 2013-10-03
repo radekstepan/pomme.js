@@ -6963,7 +6963,7 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/samskipti.js", function(exports, require, module){
-var Samskipti, nextTick, s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds, _,
+var Samskipti, Transaction, nextTick, s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -7122,13 +7122,13 @@ Samskipti = (function() {
       throw "jschannel cannot run this browser, no postMessage";
     }
     if (!_.isObject(this.cfg)) {
-      throw "Channel build invoked without a proper object argument";
+      throw "Samskipti invoked without a proper object argument";
     }
     if (!this.cfg.window || !this.cfg.window.postMessage) {
-      throw "Channel.build() called without a valid root argument";
+      throw "Samskipti called without a valid window argument";
     }
     if (window === this.cfg.window) {
-      throw "target root is same as present root -- not allowed";
+      throw "Samskipti target window is same as present window";
     }
     if (_.isString(this.cfg.origin)) {
       oMatch = this.cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/);
@@ -7184,69 +7184,6 @@ Samskipti = (function() {
     }
   };
 
-  Samskipti.prototype.createTransaction = function(id, origin, callbacks) {
-    var completed, shouldDelayReturn,
-      _this = this;
-    shouldDelayReturn = false;
-    completed = false;
-    return {
-      'origin': origin,
-      'invoke': function(callback, params) {
-        if (!_this.inTbl[id]) {
-          throw "attempting to invoke a callback of a nonexistent transaction: " + id;
-        }
-        if ((function() {
-          var cb, _i, _len;
-          for (_i = 0, _len = callbacks.length; _i < _len; _i++) {
-            cb = callbacks[_i];
-            if (cb === callback) {
-              return true;
-            }
-          }
-        })()) {
-          return _this.postMessage({
-            id: id,
-            params: params,
-            callback: callback
-          });
-        } else {
-          throw "request supports no such callback '" + callback + "'";
-        }
-      },
-      'error': function(error, message) {
-        completed = true;
-        if (!_this.inTbl[id]) {
-          throw "error called for nonexistent message: " + id;
-        }
-        delete _this.inTbl[id];
-        return _this.postMessage({
-          id: id,
-          error: error,
-          message: message
-        });
-      },
-      'complete': function(result) {
-        completed = true;
-        if (!_this.inTbl[id]) {
-          throw "complete called for nonexistent message: " + id;
-        }
-        delete _this.inTbl[id];
-        return _this.postMessage({
-          id: id,
-          result: result
-        });
-      },
-      'delayReturn': function(delay) {
-        if (_.isBoolean(delay)) {
-          return delay === true;
-        }
-      },
-      'completed': function() {
-        return completed;
-      }
-    };
-  };
-
   Samskipti.prototype.setTransactionTimeout = function(transId, timeout, method) {
     return window.setTimeout((function() {
       var msg;
@@ -7260,7 +7197,7 @@ Samskipti = (function() {
   };
 
   Samskipti.prototype.onMessage = function(origin, method, m) {
-    var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, trans, _i, _j, _len, _len1, _ref, _ref1;
+    var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, transaction, _i, _j, _len, _len1, _ref, _ref1;
     switch (false) {
       case !_.isFunction(this.cfg.gotMessageObserver):
         try {
@@ -7272,8 +7209,7 @@ Samskipti = (function() {
         break;
       case !(m.id && method):
         if (this.regTbl[method]) {
-          trans = this.createTransaction(m.id, origin, m.callbacks || []);
-          this.inTbl[m.id] = {};
+          transaction = new Transaction(m.id, origin, m.callbacks || [], this);
           try {
             if (m.callbacks && _.isArray(m.callbacks) && !m.callbacks.length) {
               obj = m.params;
@@ -7293,14 +7229,14 @@ Samskipti = (function() {
                   var cbName;
                   cbName = path;
                   return function(params) {
-                    return trans.invoke(cbName, params);
+                    return transaction.invoke(cbName, params);
                   };
                 })();
               }
             }
-            resp = this.regTbl[method](trans, m.params);
-            if (!trans.delayReturn() && !trans.completed()) {
-              return trans.complete(resp);
+            resp = this.regTbl[method](transaction, m.params);
+            if (!transaction.completed) {
+              return transaction.complete(resp);
             }
           } catch (_error) {
             e = _error;
@@ -7336,7 +7272,7 @@ Samskipti = (function() {
                 message = e.toString();
               }
             }
-            return trans.error(error, message);
+            return transaction.error(error, message);
           }
         }
         break;
@@ -7550,6 +7486,73 @@ Samskipti = (function() {
   };
 
   return Samskipti;
+
+})();
+
+Transaction = (function() {
+  Transaction.prototype.completed = false;
+
+  function Transaction(id, origin, callbacks, channel) {
+    this.id = id;
+    this.origin = origin;
+    this.callbacks = callbacks;
+    this.channel = channel;
+    this.complete = __bind(this.complete, this);
+    this.error = __bind(this.error, this);
+    this.invoke = __bind(this.invoke, this);
+    this.channel.inTbl[this.id] = {};
+  }
+
+  Transaction.prototype.invoke = function(callback, params) {
+    if (!this.channel.inTbl[this.id]) {
+      throw "attempting to invoke a callback of a nonexistent transaction: " + this.id;
+    }
+    if ((function() {
+      var cb, _i, _len, _ref;
+      _ref = this.callbacks;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        cb = _ref[_i];
+        if (cb === callback) {
+          return true;
+        }
+      }
+    })()) {
+      return this.channel.postMessage({
+        id: this.id,
+        params: params,
+        callback: callback
+      });
+    } else {
+      throw "request supports no such callback '" + callback + "'";
+    }
+  };
+
+  Transaction.prototype.error = function(error, message) {
+    this.completed = true;
+    if (!this.channel.inTbl[this.id]) {
+      throw "error called for nonexistent message: " + this.id;
+    }
+    delete this.channel.inTbl[this.id];
+    return this.channel.postMessage({
+      id: this.id,
+      error: error,
+      message: message
+    });
+  };
+
+  Transaction.prototype.complete = function(result) {
+    this.completed = true;
+    if (!this.channel.inTbl[this.id]) {
+      throw "complete called for nonexistent message: " + this.id;
+    }
+    delete this.channel.inTbl[this.id];
+    return this.channel.postMessage({
+      id: this.id,
+      result: result
+    });
+  };
+
+  return Transaction;
 
 })();
 

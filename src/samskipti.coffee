@@ -131,9 +131,9 @@ class Samskipti
         
         # basic argument validation 
         # the remote window with which we'll communicate
-        throw ("Channel build invoked without a proper object argument") unless _.isObject @cfg
-        throw ("Channel.build() called without a valid root argument") if not @cfg.window or not @cfg.window.postMessage
-        throw ("target root is same as present root -- not allowed") if window is @cfg.window
+        throw ("Samskipti invoked without a proper object argument") unless _.isObject @cfg
+        throw ("Samskipti called without a valid window argument") if not @cfg.window or not @cfg.window.postMessage
+        throw ("Samskipti target window is same as present window") if window is @cfg.window
         
         # let's require that the client specify an origin. if we just assume '*' we'll be
         # propagating unsafe practices. that would be lame.
@@ -155,7 +155,7 @@ class Samskipti
             throw "scope may not contain double colons: '::'" if @cfg.scope.split("::").length > 1
         
         # private variables 
-        # generate a random and psuedo unique id for this channel
+        # generate a random and pseudo unique id for this channel
         @chanId = do ->
             text = ""
             alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -195,55 +195,6 @@ class Samskipti
             
             console.log "[#{@chanId}] #{m}"
 
-    createTransaction: (id, origin, callbacks) ->
-        shouldDelayReturn = no
-        completed = no
-        
-        return {
-            'origin': origin
-            
-            'invoke': (callback, params) =>
-                # verify in table
-                throw "attempting to invoke a callback of a nonexistent transaction: #{id}" unless @inTbl[id]
-                
-                # verify that the callback name is valid
-                if do ( -> ( return yes for cb in callbacks when cb is callback ) )
-                    # send callback invocation
-                    @postMessage { id, params, callback }
-                else
-                    throw "request supports no such callback '#{callback}'"
-
-            'error': (error, message) =>
-                completed = yes
-                
-                # verify in table
-                throw "error called for nonexistent message: #{id}" unless @inTbl[id]
-                
-                # remove transaction from table
-                delete @inTbl[id]
-                
-                # send error
-                @postMessage { id, error, message }
-
-            'complete': (result) =>
-                completed = yes
-                
-                # verify in table
-                throw "complete called for nonexistent message: #{id}" unless @inTbl[id]
-                
-                # remove transaction from table
-                delete @inTbl[id]
-
-                # send complete
-                @postMessage { id, result }
-
-            'delayReturn': (delay) =>
-                (delay is yes) if _.isBoolean delay
-
-            'completed': =>
-                completed
-        }
-
     setTransactionTimeout: (transId, timeout, method) ->
         window.setTimeout ( ->
             if @outTbl[transId]
@@ -274,9 +225,8 @@ class Samskipti
             when m.id and method
                 # a request! do we have a registered handler for this request?
                 if @regTbl[method]
-                    trans = @createTransaction(m.id, origin, (m.callbacks or []))
-                    @inTbl[m.id] = {}
-                    
+                    transaction = new Transaction m.id, origin, (m.callbacks or []), @
+
                     try
                         # callback handling. we'll magically create functions inside the parameter list for each
                         # callback
@@ -291,10 +241,10 @@ class Samskipti
                                 obj[pathItems[pathItems.length - 1]] = do ->
                                     cbName = path
                                     (params) ->
-                                        trans.invoke cbName, params
+                                        transaction.invoke cbName, params
                         
-                        resp = @regTbl[method](trans, m.params)
-                        trans.complete resp if not do trans.delayReturn and not do trans.completed
+                        resp = @regTbl[method](transaction, m.params)
+                        transaction.complete(resp) unless transaction.completed
                     
                     catch e
                         # automagic handling of exceptions:
@@ -334,7 +284,7 @@ class Samskipti
                             catch e2
                                 message = do e.toString
                         
-                        trans.error error, message
+                        transaction.error error, message
             
             when m.id and m.callback
                 if not @outTbl[m.id] or not @outTbl[m.id].callbacks or not @outTbl[m.id].callbacks[m.callback]
@@ -511,5 +461,47 @@ class Samskipti
         
         @debug "channel destroyed"
         @chanId = ""
+
+class Transaction
+
+    completed: no
+
+    constructor: (@id, @origin, @callbacks, @channel) ->
+        @channel.inTbl[@id] = {}
+            
+    invoke: (callback, params) =>
+        # verify in table
+        throw "attempting to invoke a callback of a nonexistent transaction: #{@id}" unless @channel.inTbl[@id]
+        
+        # verify that the callback name is valid
+        if do ( -> ( return yes for cb in @callbacks when cb is callback ) )
+            # send callback invocation
+            @channel.postMessage { @id, params, callback }
+        else
+            throw "request supports no such callback '#{callback}'"
+
+    error: (error, message) =>
+        @completed = yes
+        
+        # verify in table
+        throw "error called for nonexistent message: #{@id}" unless @channel.inTbl[@id]
+        
+        # remove transaction from table
+        delete @channel.inTbl[@id]
+        
+        # send error
+        @channel.postMessage { @id, error, message }
+
+    complete: (result) =>
+        @completed = yes
+        
+        # verify in table
+        throw "complete called for nonexistent message: #{@id}" unless @channel.inTbl[@id]
+        
+        # remove transaction from table
+        delete @channel.inTbl[@id]
+
+        # send complete
+        @channel.postMessage { @id, result }
 
 module.exports = Samskipti
