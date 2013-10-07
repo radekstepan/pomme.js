@@ -7116,42 +7116,35 @@ switch (false) {
 Samskipti = (function() {
   Samskipti.prototype.ready = false;
 
-  function Samskipti(cfg) {
-    var msg, _base,
-      _this = this;
-    this.cfg = cfg;
+  Samskipti.prototype.origin = '*';
+
+  Samskipti.prototype.scope = 'testScope';
+
+  function Samskipti(opts) {
     this.onReady = __bind(this.onReady, this);
     this.onMessage = __bind(this.onMessage, this);
+    var k, msg, v,
+      _this = this;
+    for (k in opts) {
+      v = opts[k];
+      this[k] = v;
+    }
     if (!('postMessage' in window)) {
       throw "jschannel cannot run this browser, no postMessage";
     }
-    if (!_.isObject(this.cfg)) {
-      throw "Samskipti invoked without a proper object argument";
-    }
-    if (!this.cfg.window || !this.cfg.window.postMessage) {
+    if (!this.window || !this.window.postMessage) {
       throw "Samskipti called without a valid window argument";
     }
-    if (window === this.cfg.window) {
+    if (window === this.window) {
       throw "Samskipti target window is same as present window";
-    }
-    if (this.cfg.scope) {
-      if (typeof this.cfg.scope !== "string") {
-        throw "scope, when specified, must be a string";
-      }
-      if (this.cfg.scope.split("::").length > 1) {
-        throw "scope may not contain double colons: '::'";
-      }
-    }
-    if ((_base = this.cfg).origin == null) {
-      _base.origin = '*';
     }
     this.chanId = chanId++;
     this.regTbl = {};
     this.outTbl = {};
     this.inTbl = {};
     this.pendingQueue = [];
-    msg = _.isString(this.cfg.scope) ? this.cfg.scope : '';
-    s_addBoundChan(this.cfg.window, this.cfg.origin, msg, this.onMessage);
+    msg = this.scope || '';
+    s_addBoundChan(this.window, this.origin, msg, this.onMessage);
     this.bind("__ready", this.onReady);
     nextTick(function() {
       return _this.postMessage({
@@ -7161,15 +7154,22 @@ Samskipti = (function() {
     });
   }
 
-  Samskipti.prototype.debug = function(m) {
-    var _ref;
-    if (this.cfg.debugOutput && (((_ref = window.console) != null ? _ref.log : void 0) != null)) {
-      try {
-        if (!_.isString(m)) {
-          m = JSON.stringify(m);
+  Samskipti.prototype.log = function() {
+    var args, _ref;
+    if (this.debug && (((_ref = window.console) != null ? _ref.log : void 0) != null)) {
+      args = _(arguments).toArray().reduce(function(all, item) {
+        var e;
+        if (_.isString(item)) {
+          return all + ' ' + item;
         }
-      } catch (_error) {}
-      return console.log("[" + this.chanId + "] " + m);
+        try {
+          return all + ' ' + JSON.stringify(item);
+        } catch (_error) {
+          e = _error;
+          return false;
+        }
+      });
+      return console.log("[" + this.chanId + "]", args);
     }
   };
 
@@ -7188,14 +7188,6 @@ Samskipti = (function() {
   Samskipti.prototype.onMessage = function(origin, method, m) {
     var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, transaction, _i, _j, _len, _len1, _ref, _ref1;
     switch (false) {
-      case !_.isFunction(this.cfg.gotMessageObserver):
-        try {
-          return this.cfg.gotMessageObserver(origin, m);
-        } catch (_error) {
-          e = _error;
-          return this.debug("gotMessageObserver() raised an exception: " + (e.toString()));
-        }
-        break;
       case !(m.id && method):
         if (this.regTbl[method]) {
           transaction = new Transaction(m.id, origin, m.callbacks || [], this);
@@ -7267,14 +7259,14 @@ Samskipti = (function() {
         break;
       case !(m.id && m.callback):
         if (!this.outTbl[m.id] || !this.outTbl[m.id].callbacks || !this.outTbl[m.id].callbacks[m.callback]) {
-          return this.debug("ignoring invalid callback, id: " + m.id + " (" + m.callback + ")");
+          return this.log("ignoring invalid callback, id: " + m.id + " (" + m.callback + ")");
         } else {
           return this.outTbl[m.id].callbacks[m.callback](m.params);
         }
         break;
       case !m.id:
         if (!this.outTbl[m.id]) {
-          return this.debug("ignoring invalid response: " + m.id);
+          return this.log("ignoring invalid response: " + m.id);
         } else {
           error = m.error, message = m.message, id = m.id, result = m.result;
           if (error) {
@@ -7298,54 +7290,46 @@ Samskipti = (function() {
   };
 
   Samskipti.prototype.scopeMethod = function(m) {
-    if (_.isString(this.cfg.scope) && this.cfg.scope.length) {
-      return [this.cfg.scope, m].join("::");
+    if (_.isString(this.scope) && this.scope.length) {
+      return [this.scope, m].join("::");
     }
   };
 
   Samskipti.prototype.postMessage = function(msg, force) {
-    var e, verb;
-    if (!msg) {
-      throw "postMessage called with null message";
+    if (force == null) {
+      force = false;
     }
-    verb = this.ready ? "post" : "queue";
-    this.debug("" + verb + " message: " + (JSON.stringify(msg)));
+    if (!msg) {
+      throw "no message provided to postMessage";
+    }
+    this.log('will post', msg);
     if (!force && !this.ready) {
       return this.pendingQueue.push(msg);
-    } else {
-      if (_.isFunction(this.cfg.postMessageObserver)) {
-        try {
-          this.cfg.postMessageObserver(this.cfg.origin, msg);
-        } catch (_error) {
-          e = _error;
-          this.debug("postMessageObserver() raised an exception: " + (e.toString()));
-        }
-      }
-      return this.cfg.window.postMessage(JSON.stringify(msg), this.cfg.origin);
     }
+    return this.window.postMessage(JSON.stringify(msg), this.origin);
   };
 
   Samskipti.prototype.onReady = function(trans, type) {
-    this.debug("ready msg received");
+    var _results;
+    this.log("ready msg received");
     if (this.ready) {
-      throw "received ready message while in ready state. help!";
+      throw "received ready message while in ready state";
     }
     this.chanId += type === "ping" ? "-R" : "-L";
     this.unbind("__ready");
     this.ready = true;
-    this.debug("ready msg accepted.");
+    this.log("ready msg accepted.");
     if (type === "ping") {
       this.notify({
         'method': "__ready",
         'params': "pong"
       });
     }
+    _results = [];
     while (this.pendingQueue.length) {
-      this.postMessage(this.pendingQueue.pop());
+      _results.push(this.postMessage(this.pendingQueue.pop()));
     }
-    if (_.isFunction(this.cfg.onReady)) {
-      return this.cfg.onReady(this);
-    }
+    return _results;
   };
 
   Samskipti.prototype.unbind = function(method) {
@@ -7455,8 +7439,8 @@ Samskipti = (function() {
 
   Samskipti.prototype.destroy = function() {
     var scope;
-    scope = _.isString(this.cfg.scope) ? this.cfg.scope : '';
-    s_removeBoundChan(this.cfg.window, this.cfg.origin, scope);
+    scope = _.isString(this.scope) ? this.scope : '';
+    s_removeBoundChan(this.window, this.origin, scope);
     switch (false) {
       case !('removeEventListener' in window):
         window.removeEventListener("message", this.onMessage, false);
@@ -7468,9 +7452,9 @@ Samskipti = (function() {
     this.regTbl = {};
     this.inTbl = {};
     this.outTbl = {};
-    this.cfg.origin = null;
+    this.origin = null;
     this.pendingQueue = [];
-    this.debug("channel destroyed");
+    this.log("channel destroyed");
     return this.chanId = "";
   };
 

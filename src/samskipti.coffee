@@ -119,30 +119,28 @@ switch
 
 class Samskipti
 
-    # are we ready yet? when false we will block outbound messages.
+    # Are we ready yet? when false we will block outbound messages.
     ready: no
 
-    # a messaging channel is constructed from a root and an origin.
-    constructor: (@cfg) ->
+    # Specifies what the origin of otherWindow must be for the event to be
+    #  dispatched, either as the literal string "*" (indicating no preference) or as a URI.
+    origin: '*'
+
+    # Scope is prepended to message names. Windows of a single channel must agree upon scope.
+    scope: 'testScope'
+
+    # Provide `window` and `scope` at the least.
+    constructor: (opts) ->
+        # Expand opts on us.
+        ( @[k] = v for k, v of opts )
         
         # browser capabilities check
         throw ("jschannel cannot run this browser, no postMessage") unless 'postMessage' of window
         
         # basic argument validation 
         # the remote window with which we'll communicate
-        throw ("Samskipti invoked without a proper object argument") unless _.isObject @cfg
-        throw ("Samskipti called without a valid window argument") if not @cfg.window or not @cfg.window.postMessage
-        throw ("Samskipti target window is same as present window") if window is @cfg.window
-        
-        # The 'scope' of messages. A scope string that is prepended to message names. local and remote endpoints
-        #  of a single channel must agree upon scope. Scope may not contain double colons ('::').            
-        if @cfg.scope
-            throw "scope, when specified, must be a string" if typeof @cfg.scope isnt "string"
-            throw "scope may not contain double colons: '::'" if @cfg.scope.split("::").length > 1
-        
-        # Specifies what the origin of otherWindow must be for the event to be
-        #  dispatched, either as the literal string "*" (indicating no preference) or as a URI.
-        @cfg.origin ?= '*'
+        throw ("Samskipti called without a valid window argument") if not @window or not @window.postMessage
+        throw ("Samskipti target window is same as present window") if window is @window
 
         # private variables 
         # generate a random and pseudo unique id for this channel
@@ -160,26 +158,31 @@ class Samskipti
         # what can we do? Also, here we'll ignore return values
         
         # now register our bound channel for msg routing
-        msg = if _.isString(@cfg.scope) then @cfg.scope else ''
-        s_addBoundChan @cfg.window, @cfg.origin, msg, @onMessage
+        msg = @scope or ''
+        s_addBoundChan @window, @origin, msg, @onMessage
 
         @bind "__ready", @onReady
-        
+
+        # Say to the other window you are ready. Need to force the message.
         nextTick =>
             @postMessage {
                 'method': @scopeMethod("__ready")
                 'params': "ping"
-            }, true
+            }, yes
 
-    debug: (m) ->
-        # A boolean value. If true and root.console.log is a function, then debug strings will
-        #  be emitted to that function.
-        if @cfg.debugOutput and window.console?.log?
-            # try to stringify, if it doesn't work we'll let javascript's built in toString do its magic
-            try
-                m = JSON.stringify(m) unless _.isString(m)
-            
-            console.log "[#{@chanId}] #{m}"
+    # Shall we log to the console?
+    log: ->
+        if @debug and window.console?.log?
+            # Stringify args.
+            args = _(arguments).toArray().reduce( (all, item) ->
+                return all + ' ' + item if _.isString(item) # already a string?
+                try
+                    all + ' ' + JSON.stringify(item) # stringify then
+                catch e
+                    no
+            )
+            # We clearly shall...
+            console.log "[#{@chanId}]", args
 
     setTransactionTimeout: (transId, timeout, method) ->
         window.setTimeout ( ->
@@ -192,21 +195,7 @@ class Samskipti
         ), timeout
 
     onMessage: (origin, method, m) =>
-        switch
-            # if an observer was specified at allocation time, invoke it
-            # A function that will be passed two arguments, an origin and a message.
-            #  It will be passed these arguments immediately after they pass scope and
-            #  origin checks, but before they are processed.
-            when _.isFunction @cfg.gotMessageObserver
-                # pass observer a clone of the object so that our
-                # manipulations are not visible (i.e. method unscoping).
-                # This is not particularly efficient, but then we expect
-                # that message observers are primarily for debugging anyway.
-                try
-                    @cfg.gotMessageObserver origin, m
-                catch e
-                    @debug "gotMessageObserver() raised an exception: #{e.toString()}"
-            
+        switch            
             # now, what type of message is this?
             when m.id and method
                 # a request! do we have a registered handler for this request?
@@ -274,14 +263,14 @@ class Samskipti
             
             when m.id and m.callback
                 if not @outTbl[m.id] or not @outTbl[m.id].callbacks or not @outTbl[m.id].callbacks[m.callback]
-                    @debug "ignoring invalid callback, id: #{m.id} (#{m.callback})"
+                    @log "ignoring invalid callback, id: #{m.id} (#{m.callback})"
                 else
                     # XXX: what if client code raises an exception here?
                     @outTbl[m.id].callbacks[m.callback] m.params
             
             when m.id
                 unless @outTbl[m.id]
-                    @debug "ignoring invalid response: #{m.id}"
+                    @log "ignoring invalid response: #{m.id}"
                 else
                     # XXX: what if client code raises an exception here?
                     { error, message, id, result } = m
@@ -303,38 +292,28 @@ class Samskipti
                     @regTbl[method] { origin }, m.params
 
     # scope method names based on cfg.scope specified when the Channel was instantiated
-    scopeMethod: (m) -> [ @cfg.scope, m ].join("::") if _.isString(@cfg.scope) and @cfg.scope.length
+    scopeMethod: (m) -> [ @scope, m ].join("::") if _.isString(@scope) and @scope.length
 
     # a small wrapper around postmessage whose primary function is to handle the
     # case that clients start sending messages before the other end is "ready"
-    postMessage: (msg, force) ->
-        throw "postMessage called with null message" unless msg
+    postMessage: (msg, force=no) ->
+        throw "no message provided to postMessage" unless msg
+        @log 'will post', msg
         
-        # delay posting if we're not ready yet.
-        verb = if @ready then "post" else "queue"
-        @debug "#{verb} message: #{JSON.stringify(msg)}"
-        
-        if not force and not @ready
-            @pendingQueue.push msg
-        else
-            # A function that will be passed two arguments, an origin and a message.
-            #  It will be passed these immediately before messages are posted.
-            if _.isFunction @cfg.postMessageObserver
-                try
-                    @cfg.postMessageObserver @cfg.origin, msg
-                catch e
-                    @debug "postMessageObserver() raised an exception: #{e.toString()}"
+        # Enqueue if we are not pinging or are not ready.
+        return @pendingQueue.push(msg) if not force and not @ready
 
-            @cfg.window.postMessage JSON.stringify(msg), @cfg.origin
+        @window.postMessage JSON.stringify(msg), @origin
 
     onReady: (trans, type) =>
-        @debug "ready msg received"
-        throw "received ready message while in ready state. help!" if @ready
+        @log "ready msg received"
+        throw "received ready message while in ready state" if @ready
+        
         @chanId += if type is "ping" then "-R" else "-L"
         
         @unbind "__ready" # now this handler isn't needed any more.
         @ready = yes
-        @debug "ready msg accepted."
+        @log "ready msg accepted."
         
         @notify {
             'method': "__ready"
@@ -343,13 +322,6 @@ class Samskipti
 
         # flush queue
         ( @postMessage do @pendingQueue.pop while @pendingQueue.length )
-        
-        # invoke onReady observer if provided
-        # A function that will be invoked when a channel becomes "ready", this occurs once
-        #  both sides of the channel have been instantiated and an application level handshake
-        #  is exchanged. the onReady function will be passed a single argument which is the
-        #  channel object that was returned from build().
-        @cfg.onReady @ if _.isFunction @cfg.onReady
 
     # tries to unbind a bound message handler. returns false if not possible
     unbind: (method) ->
@@ -428,8 +400,8 @@ class Samskipti
 
 
     destroy: ->
-        scope = if _.isString(@cfg.scope) then @cfg.scope else ''
-        s_removeBoundChan @cfg.window, @cfg.origin, scope
+        scope = if _.isString(@scope) then @scope else ''
+        s_removeBoundChan @window, @origin, scope
 
         switch
             when 'removeEventListener' of window
@@ -442,10 +414,10 @@ class Samskipti
         @regTbl = {}
         @inTbl = {}
         @outTbl = {}
-        @cfg.origin = null
+        @origin = null
         @pendingQueue = []
         
-        @debug "channel destroyed"
+        @log "channel destroyed"
         @chanId = ""
 
 class Transaction
