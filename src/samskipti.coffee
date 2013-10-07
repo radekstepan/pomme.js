@@ -134,25 +134,16 @@ class Samskipti
         throw ("Samskipti called without a valid window argument") if not @cfg.window or not @cfg.window.postMessage
         throw ("Samskipti target window is same as present window") if window is @cfg.window
         
-        # let's require that the client specify an origin. if we just assume '*' we'll be
-        # propagating unsafe practices. that would be lame.
-        # the expected origin of the remote root, may be '*' which matches any origin.
-        if _.isString @cfg.origin
-            oMatch = @cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/)
-            switch
-                # allow valid domains under http and https.    Also, trim paths off otherwise valid origins.
-                when oMatch isnt null
-                    @cfg.origin = oMatch[0].toLowerCase()
-
-                when @cfg.origin isnt '*'
-                    throw "Channel.build() called with an invalid origin"
-        
         # The 'scope' of messages. A scope string that is prepended to message names. local and remote endpoints
         #  of a single channel must agree upon scope. Scope may not contain double colons ('::').            
         if @cfg.scope
             throw "scope, when specified, must be a string" if typeof @cfg.scope isnt "string"
             throw "scope may not contain double colons: '::'" if @cfg.scope.split("::").length > 1
         
+        # Specifies what the origin of otherWindow must be for the event to be
+        #  dispatched, either as the literal string "*" (indicating no preference) or as a URI.
+        @cfg.origin ?= '*'
+
         # private variables 
         # generate a random and pseudo unique id for this channel
         @chanId = chanId++

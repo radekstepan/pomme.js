@@ -17,16 +17,15 @@
     (function() {
         var Sam = require('samskipti');
         
-        var chan = new Sam({
+        var chanAppsA = new Sam({
             'window': document.getElementById("child").contentWindow,
-            'origin': "*",
-            'scope': "testScope",
+            'scope': "appsA",
             'debugOutput': true
         });
-        
-        chan.call({
-            'method': "reverse",
-            'params': "hello world!",
+
+        chanAppsA.call({
+            'method': "load",
+            'params': 'ABC',
             'success': function(v) {
                 console.log(v);
             },

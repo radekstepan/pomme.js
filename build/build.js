@@ -7117,7 +7117,7 @@ Samskipti = (function() {
   Samskipti.prototype.ready = false;
 
   function Samskipti(cfg) {
-    var msg, oMatch,
+    var msg, _base,
       _this = this;
     this.cfg = cfg;
     this.onReady = __bind(this.onReady, this);
@@ -7134,16 +7134,6 @@ Samskipti = (function() {
     if (window === this.cfg.window) {
       throw "Samskipti target window is same as present window";
     }
-    if (_.isString(this.cfg.origin)) {
-      oMatch = this.cfg.origin.match(/^https?:\/\/(?:[-a-zA-Z0-9_\.])+(?::\d+)?/);
-      switch (false) {
-        case oMatch === null:
-          this.cfg.origin = oMatch[0].toLowerCase();
-          break;
-        case this.cfg.origin === '*':
-          throw "Channel.build() called with an invalid origin";
-      }
-    }
     if (this.cfg.scope) {
       if (typeof this.cfg.scope !== "string") {
         throw "scope, when specified, must be a string";
@@ -7151,6 +7141,9 @@ Samskipti = (function() {
       if (this.cfg.scope.split("::").length > 1) {
         throw "scope may not contain double colons: '::'";
       }
+    }
+    if ((_base = this.cfg).origin == null) {
+      _base.origin = '*';
     }
     this.chanId = chanId++;
     this.regTbl = {};

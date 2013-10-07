@@ -14,14 +14,13 @@
     (function() {
         var Sam = require('samskipti');
         
-        var chan = new Sam({
+        var chanAppsA = new Sam({
             'window': window.parent,
-            'origin': "*",
-            'scope': "testScope",
+            'scope': "appsA",
             'debugOutput': true
         });
         
-        chan.bind("reverse", function(trans, s) {
+        chanAppsA.bind("load", function(transaction, s) {
             return s.split("").reverse().join("");
         });
     })();
