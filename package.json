@@ -1,0 +1,25 @@
+{
+    "name": "samskipti",
+    "version": "0.0.0",
+    "description": "JS comms between parent and child frame",
+    "devDependencies": {
+        "coffee-script": "~1.6.3",
+        "apps-b-builder": "0.3.0",
+        "mocha": "~1.12.0"
+    },
+    "scripts": {
+        "test": "make test"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:radekstepan/samskipti.git"
+    },
+    "keywords": [
+        "postmessage",
+        "jschannel",
+        "window",
+        "iframe",
+        "channel"
+    ],
+    "author": "Radek <rs676@cam.ac.uk>"
+}
