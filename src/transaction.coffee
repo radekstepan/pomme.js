@@ -4,11 +4,11 @@ class Transaction
     completed: no
 
     constructor: (@id, @origin, @callbacks, @channel) ->
-        @channel.inTbl[@id] = {}
+        @channel.incoming[@id] = {}
             
     invoke: (callback, params) =>
         # verify in table
-        throw "attempting to invoke a callback of a nonexistent transaction: #{@id}" unless @channel.inTbl[@id]
+        throw "attempting to invoke a callback of a nonexistent transaction: #{@id}" unless @channel.incoming[@id]
         
         # verify that the callback name is valid
         if do ( -> ( return yes for cb in @callbacks when cb is callback ) )
@@ -21,22 +21,24 @@ class Transaction
         @completed = yes
         
         # verify in table
-        throw "error called for nonexistent message: #{@id}" unless @channel.inTbl[@id]
+        throw "error called for nonexistent message: #{@id}" unless @channel.incoming[@id]
         
         # remove transaction from table
-        delete @channel.inTbl[@id]
+        delete @channel.incoming[@id]
         
         # send error
         @channel.postMessage { @id, error, message }
 
     complete: (result) =>
+        return if @completed
+
         @completed = yes
         
         # verify in table
-        throw "complete called for nonexistent message: #{@id}" unless @channel.inTbl[@id]
+        throw "complete called for nonexistent message: #{@id}" unless @channel.incoming[@id]
         
         # remove transaction from table
-        delete @channel.inTbl[@id]
+        delete @channel.incoming[@id]
 
         # send complete
         @channel.postMessage { @id, result }

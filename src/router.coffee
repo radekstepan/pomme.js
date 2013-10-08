@@ -13,7 +13,7 @@ class Router
     transactions: {}
 
     # add a channel to router table, throwing if a dup exists
-    add: (win, origin, scope, handler) ->
+    register: (win, origin, scope='', handler) ->
         hasWin = (arr) ->
             ( return yes for x in arr when x.win is win )
             no
@@ -23,8 +23,8 @@ class Router
         
         if origin is "*"    
             # we must check all other origins, sadly.
-            for k of @table when _.has(table, k) and k isnt '*'
-                if _.isObject table[k][scope]
+            for k of @table when _.has(@table, k) and k isnt '*'
+                if _.isObject @table[k][scope]
                     break if exists = hasWin @table[k][scope]
         
         else
@@ -99,6 +99,9 @@ class Router
             # otherwise it must have an id (or be poorly formed
             when i
                 router.transactions[i](o, meth, m) if router.transactions[i]
+
+# Browser capabilities check
+throw ('Samskipti cannot run in this browser, no postMessage') unless 'postMessage' of window
 
 # Transaction id.
 currentTransactionId = 1

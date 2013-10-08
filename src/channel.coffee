@@ -1,61 +1,56 @@
 _        = require 'lodash'
 nextTick = require 'next-tick'
 
+# Get the singleton of the router all channels use.
 { currentTransactionId, channelId, router }  = require './router'
 Transaction = require './transaction'
 
-# One channel.
 class Channel
 
-    # Are we ready yet? when false we will block outbound messages.
+    # Are we ready yet? When set to false we will block & queue outbound messages.
     ready: no
 
-    # Specifies what the origin of otherWindow must be for the event to be
-    #  dispatched, either as the literal string "*" (indicating no preference) or as a URI.
+    # Specifies what the origin of the other `window` must be for the event to be  dispatched.
+    #  Either use '*' (indicating no preference) or a URI.
     origin: '*'
 
     # Scope is prepended to message names. Windows of a single channel must agree upon scope.
     scope: 'testScope'
 
-    # Provide `window` and `scope` at the least.
+    # Create a new channel. Provide `window` and `scope` at the least.
     constructor: (opts) ->
         # Expand opts on us.
         ( @[k] = v for k, v of opts )
-        
-        # browser capabilities check
-        throw ("jschannel cannot run this browser, no postMessage") unless 'postMessage' of window
-        
-        # basic argument validation 
-        # the remote window with which we'll communicate
-        throw ("Samskipti called without a valid window argument") if not @window or not @window.postMessage
-        throw ("Samskipti target window is same as present window") if window is @window
 
-        # private variables 
-        # generate a random and pseudo unique id for this channel
+        # Make sure we do not communicate with ourselves.
+        throw 'Samskipti target window is same as present window' if window is @window
+
+        # A new channel id.
         @channelId = channelId++
         
-        # registrations: mapping method names to call objects
-        @regTbl = {}            
-        # current oustanding sent requests
-        @outTbl = {}
-        # current oustanding received requests
-        @inTbl = {}
-        @pendingQueue = []
+        # Method names to message handlers.
+        @handlers = {}
         
-        # if the client throws, we'll just let it bubble out
-        # what can we do? Also, here we'll ignore return values
+        # Outgoing transactions.
+        @outgoing = {}
         
-        # now register our bound channel for msg routing
-        msg = @scope or ''
-        router.add @window, @origin, msg, @onMessage
+        # Incoming transactions.
+        @incoming = {}
+        
+        # Pending messages when not ready yet.
+        @pending = []
+                
+        # Register channel with the router.
+        router.register @window, @origin, @scope, @onMessage
 
-        @bind "__ready", @onReady
+        # Be ready when we are ready...
+        @bind '__ready', @onReady
 
-        # Say to the other window you are ready. Need to force the message.
+        # Say to the other window we are ready. Need to force the message.
         nextTick =>
             @postMessage {
-                'method': @scopeMethod("__ready")
-                'params': "ping"
+                'method': @scopeMethod('__ready')
+                'params': 'ping'
             }, yes
 
     # Shall we log to the console?
@@ -67,117 +62,88 @@ class Channel
                 try
                     all + ' ' + JSON.stringify(item) # stringify then
                 catch e
-                    no
+                    no # keep quiet
             )
             # We clearly shall...
             console.log "[#{@channelId}]", args
 
-    setTransactionTimeout: (transId, timeout, method) ->
-        window.setTimeout ( ->
-            if @outTbl[transId]
-                # XXX: what if client code raises an exception here?
-                msg = "timeout (#{timeout}ms) exceeded on method '#{method}'"
-                @outTbl[transId].error "timeout_error", msg
-                delete @outTbl[transId]
-                delete router.transactions[transId]
-        ), timeout
-
-    onMessage: (origin, method, m) =>
+    # On an incoming message.
+    onMessage: (origin, method, message) =>
         switch            
-            # now, what type of message is this?
-            when m.id and method
-                # a request! do we have a registered handler for this request?
-                if @regTbl[method]
-                    transaction = new Transaction m.id, origin, (m.callbacks or []), @
+            when message.id and method
+                # Do we have a handler for this method?
+                if @handlers[method]
+                    transaction = new Transaction message.id, origin, (message.callbacks or []), @
 
+                    # Try getting a response by running the handler.
                     try
-                        # callback handling. we'll magically create functions inside the parameter list for each
-                        # callback
-                        if m.callbacks and _.isArray(m.callbacks) and not m.callbacks.length
-                            obj = m.params
-                            pathItems = path.split("/")
-                            for path in m.callbacks
-                                for cp in pathItems[...-1]
-                                    obj[cp] = {} unless _.isObject obj[cp]
-                                    obj = obj[cp]
-                                
-                                obj[pathItems[pathItems.length - 1]] = do ->
-                                    cbName = path
-                                    (params) ->
-                                        transaction.invoke cbName, params
-                        
-                        resp = @regTbl[method](transaction, m.params)
-                        transaction.complete(resp) unless transaction.completed
+                        response = @handlers[method] transaction, message.params
+                        # We are done, no problems.
+                        transaction.complete response
                     
+                    # Problems with running the handler.
                     catch e
-                        # automagic handling of exceptions:
-                        error = "runtime_error"
-                        message = null
+                        error = 'runtime_error' ; message = null
                         
-                        # * if it's a string then it gets an error code of 'runtime_error' and string is the message
-                        if _.isString e
-                            message = e
-                        
-                        else if _.isObject e
-                            # either an array or an object
-                            # * if it's an array of length two, then array[0] is the code, array[1] is the error message
-                            if _.isArray e
-                                [ error, message ] = e
+                        # Parse the error.
+                        switch
+                            when _.isString e
+                                message = e
                             
-                            # * if it's an object then we'll look form error and message parameters
-                            else if _.isString e.error
-                                error = e.error
-                                switch
-                                    when not e.message
-                                        message = ""
+                            when _.isArray e
+                                [ error, message ] = e
+
+                            when _.isObject e
+                                if _.isString e.error
+                                    error = e.error
                                     
-                                    when _.isString e.message
-                                        message = e.message
-                                    
-                                    # let the stringify/toString message give us a reasonable verbose error string
-                                    else
-                                        e = e.message
+                                    switch
+                                        when not e.message
+                                            message = ''
+                                        when _.isString e.message
+                                            message = e.message
+                                        else
+                                            e = e.message
                         
-                        # message is *still* null, let's try harder
-                        if message is null
+                        # Try stringifying.
+                        unless message
                             try
-                                message = JSON.stringify(e)
-                                # On MSIE8, this can result in 'out of memory', which leaves message undefined. 
-                                message = do e.toString if _.isUndefined message
+                                message = JSON.stringify e
                             catch e2
                                 message = do e.toString
                         
+                        # Execute the error callback.
                         transaction.error error, message
             
-            when m.id and m.callback
-                if not @outTbl[m.id] or not @outTbl[m.id].callbacks or not @outTbl[m.id].callbacks[m.callback]
-                    @log "ignoring invalid callback, id: #{m.id} (#{m.callback})"
+            when message.id and message.callback
+                if not @outgoing[message.id] or not @outgoing[message.id].callbacks or not @outgoing[message.id].callbacks[message.callback]
+                    @log "ignoring invalid callback, id: #{message.id} (#{message.callback})"
                 else
                     # XXX: what if client code raises an exception here?
-                    @outTbl[m.id].callbacks[m.callback] m.params
+                    @outgoing[message.id].callbacks[message.callback] message.params
             
-            when m.id
-                unless @outTbl[m.id]
-                    @log "ignoring invalid response: #{m.id}"
+            when message.id
+                unless @outgoing[message.id]
+                    @log "ignoring invalid response: #{message.id}"
                 else
                     # XXX: what if client code raises an exception here?
-                    { error, message, id, result } = m
+                    { error, message, id, result } = message
                     # Has error happened?
                     if error
-                        @outTbl[id].error error, message if @outTbl[id].error
+                        @outgoing[id].error error, message if @outgoing[id].error
                     # Call success handler.
                     else
-                        @outTbl[id].success result or null
+                        @outgoing[id].success result or null
                     
-                    delete @outTbl[id]
+                    delete @outgoing[id]
                     delete router.transactions[id]
             
             when method
                 # tis a notification.
-                if @regTbl[method]
+                if @handlers[method]
                     # yep, there's a handler for that.
                     # transaction has only origin for notifications.
-                    @regTbl[method] { origin }, m.params
+                    @handlers[method] { origin }, message.params
 
     # scope method names based on cfg.scope specified when the Channel was instantiated
     scopeMethod: (m) -> [ @scope, m ].join("::") if _.isString(@scope) and @scope.length
@@ -189,7 +155,7 @@ class Channel
         @log 'will post', msg
         
         # Enqueue if we are not pinging or are not ready.
-        return @pendingQueue.push(msg) if not force and not @ready
+        return @pending.push(msg) if not force and not @ready
 
         @window.postMessage JSON.stringify(msg), @origin
 
@@ -209,72 +175,52 @@ class Channel
         } if type is "ping"
 
         # flush queue
-        ( @postMessage do @pendingQueue.pop while @pendingQueue.length )
+        ( @postMessage do @pending.pop while @pending.length )
 
     # tries to unbind a bound message handler. returns false if not possible
     unbind: (method) ->
-        if @regTbl[method]
-            throw ("can't delete method: #{method}") unless delete @regTbl[method]
+        if @handlers[method]
+            throw ("can't delete method: #{method}") unless delete @handlers[method]
             return yes
         no
 
+    # Bind a method to a handler.
     bind: (method, cb) ->
-        throw "'method' argument to bind must be string" if not method or not _.isString method
-        throw "callback missing from bind params" if not cb or not _.isFunction cb
-        throw "method '#{method}' is already bound!" if @regTbl[method]
-        @regTbl[method] = cb
+        throw '`method` must be string' if not method or not _.isString method
+        throw 'callback missing' if not cb or not _.isFunction cb
+        throw "method `#{method}` is already bound" if @handlers[method]
+        
+        @handlers[method] = cb
+        
         @
 
-    call: (m) ->
-        throw "missing arguments to call function" unless m
-        throw "'method' argument to call must be string" unless _.isString m.method
-        throw "'success' callback missing from call" unless _.isFunction m.success
-        throw "'error' callback missing from call" unless _.isFunction m.error
-        
-        # now it's time to support the 'callback' feature of jschannel.    We'll traverse the argument
-        # object and pick out all of the functions that were passed as arguments.
-        callbacks = {}
-        callbackNames = []
-        seen = []
+    # Post a message after pruning fns from params.
+    call: (message) ->
+        # Validate.
+        throw 'missing arguments to call function' unless message
+        throw '`method` argument to call must be string' unless _.isString message.method
+        throw '`success` callback missing from call' unless _.isFunction message.success
+        throw '`error` callback missing from call' unless _.isFunction message.error
 
-        pruneFunctions = (path, obj) ->
-            throw "params cannot be a recursive data structure" if obj in seen
-            seen.push obj
-            
-            if _.isObject obj
-                for k of obj when _.has(obj, k)
-                    np = path + (if path.length then "/" else "") + k
-                    if _.isFunction obj[k]
-                        callbacks[np] = obj[k]
-                        callbackNames.push np
-                        delete obj[k]
-                    else pruneFunctions np, obj[k] if _.isObject obj[k]
-
-        pruneFunctions "", m.params
-        
-        # build a 'request' message and send it
-        msg = {
+        # Build a 'request' message and send it.
+        payload = {
             'id': currentTransactionId
-            'method': @scopeMethod(m.method)
-            'params': m.params
+            'method': @scopeMethod(message.method)
+            'params': message.params
         }
-
-        msg.callbacks = callbackNames if callbackNames.length
         
-        # XXX: This function returns a timeout ID, but we don't do anything with it.
-        # We might want to keep track of it so we can cancel it using clearTimeout()
-        # when the transaction completes.
-        setTransactionTimeout(currentTransactionId, m.timeout, @scopeMethod(m.method)) if m.timeout
-        
-        # insert into the transaction table
-        { error, success } = m
-        @outTbl[currentTransactionId] = { callbacks, error, success }
+        # Get the error and success callbacks.
+        { error, success } = message
 
+        # Insert message into outgoing bin.
+        @outgoing[currentTransactionId] = { error, success }
         router.transactions[currentTransactionId] = @onMessage
         
-        # increment current id
+        # Ready for the next transaction.
         currentTransactionId++
-        @postMessage msg
+
+        # Post it.
+        @postMessage payload
 
     notify: (m) ->
         throw "missing arguments to notify function" unless m
@@ -299,11 +245,11 @@ class Channel
                 window.detachEvent "onmessage", @onMessage
         
         @ready = no
-        @regTbl = {}
-        @inTbl = {}
-        @outTbl = {}
+        @handlers = {}
+        @incoming = {}
+        @outgoing = {}
         @origin = null
-        @pendingQueue = []
+        @pending = []
         
         @log "channel destroyed"
         @channelId = ""

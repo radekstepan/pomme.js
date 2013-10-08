@@ -25,12 +25,14 @@
 
         chanAppsA.call({
             'method': "load",
-            'params': 'ABC',
+            'params': {
+                'text': 'ABC'
+            },
             'success': function(v) {
                 console.log(v);
             },
             'error': function(error, message) {
-
+                throw message;
             }
         });
     })();
