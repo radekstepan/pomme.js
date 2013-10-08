@@ -6962,8 +6962,8 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 }
 
 });
-require.register("samskipti/samskipti.js", function(exports, require, module){
-var Channel, Router, Transaction, channelId, currentTransactionId, nextTick, router, _,
+require.register("samskipti/src/channel.js", function(exports, require, module){
+var Channel, Transaction, channelId, currentTransactionId, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -6971,148 +6971,9 @@ _ = require('lodash');
 
 nextTick = require('next-tick');
 
-currentTransactionId = 1;
+_ref = require('./router'), currentTransactionId = _ref.currentTransactionId, channelId = _ref.channelId, router = _ref.router;
 
-channelId = 0;
-
-Router = (function() {
-  function Router() {
-    this.onMessage = __bind(this.onMessage, this);
-  }
-
-  Router.prototype.table = {};
-
-  Router.prototype.transactions = {};
-
-  Router.prototype.add = function(win, origin, scope, handler) {
-    var exists, hasWin, k;
-    hasWin = function(arr) {
-      var x, _i, _len;
-      for (_i = 0, _len = arr.length; _i < _len; _i++) {
-        x = arr[_i];
-        if (x.win === win) {
-          return true;
-        }
-      }
-      return false;
-    };
-    exists = false;
-    if (origin === "*") {
-      for (k in this.table) {
-        if (_.has(table, k) && k !== '*') {
-          if (_.isObject(table[k][scope])) {
-            if (exists = hasWin(this.table[k][scope])) {
-              break;
-            }
-          }
-        }
-      }
-    } else {
-      if (this.table["*"] && this.table["*"][scope]) {
-        exists = hasWin(this.table["*"][scope]);
-      }
-      if (!exists && this.table[origin] && this.table[origin][scope]) {
-        exists = hasWin(this.table[origin][scope]);
-      }
-    }
-    if (exists) {
-      throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
-    }
-    if (!_.isObject(this.table[origin])) {
-      this.table[origin] = {};
-    }
-    if (!_.isObject(this.table[origin][scope])) {
-      this.table[origin][scope] = [];
-    }
-    return this.table[origin][scope].push({
-      win: win,
-      handler: handler
-    });
-  };
-
-  Router.prototype.remove = function(win, origin, scope) {
-    var x;
-    this.table[origin][scope] = (function() {
-      var _i, _len, _ref, _results;
-      _ref = this.table[origin][scope];
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        x = _ref[_i];
-        if (x.win === win) {
-          _results.push(x);
-        }
-      }
-      return _results;
-    }).call(this);
-    if (!this.table[origin][scope].length) {
-      return delete this.table[origin][scope];
-    }
-  };
-
-  Router.prototype.onMessage = function(e) {
-    var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _len, _ref, _ref1, _results;
-    try {
-      m = JSON.parse(e.data);
-      if (m === null || !_.isObject(m)) {
-        throw "malformed";
-      }
-    } catch (_error) {
-      e = _error;
-      return;
-    }
-    w = e.source;
-    o = e.origin;
-    s = void 0;
-    i = void 0;
-    meth = void 0;
-    if (typeof m.method === "string") {
-      ar = m.method.split("::");
-      if (ar.length === 2) {
-        s = ar[0], meth = ar[1];
-      } else {
-        meth = m.method;
-      }
-    }
-    if (m.id) {
-      i = m.id;
-    }
-    switch (false) {
-      case !_.isString(meth):
-        delivered = false;
-        if (this.table[o] && this.table[o][s]) {
-          for (j = _i = 0, _ref = this.table[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
-            if (!(this.table[o][s][j].win === w)) {
-              continue;
-            }
-            this.table[o][s][j].handler(o, meth, m);
-            delivered = true;
-            break;
-          }
-        }
-        if (!delivered && this.table["*"] && this.table["*"][s]) {
-          _ref1 = this.table["*"][s];
-          _results = [];
-          for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
-            j = _ref1[_j];
-            if (!(j.win === w)) {
-              continue;
-            }
-            j.handler(o, meth, m);
-            break;
-          }
-          return _results;
-        }
-        break;
-      case !i:
-        if (router.transactions[i]) {
-          return router.transactions[i](o, meth, m);
-        }
-    }
-  };
-
-  return Router;
-
-})();
+Transaction = require('./transaction');
 
 Channel = (function() {
   Channel.prototype.ready = false;
@@ -7156,8 +7017,8 @@ Channel = (function() {
   }
 
   Channel.prototype.log = function() {
-    var args, _ref;
-    if (this.debug && (((_ref = window.console) != null ? _ref.log : void 0) != null)) {
+    var args, _ref1;
+    if (this.debug && (((_ref1 = window.console) != null ? _ref1.log : void 0) != null)) {
       args = _(arguments).toArray().reduce(function(all, item) {
         var e;
         if (_.isString(item)) {
@@ -7187,7 +7048,7 @@ Channel = (function() {
   };
 
   Channel.prototype.onMessage = function(origin, method, m) {
-    var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, transaction, _i, _j, _len, _len1, _ref, _ref1;
+    var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, transaction, _i, _j, _len, _len1, _ref1, _ref2;
     switch (false) {
       case !(m.id && method):
         if (this.regTbl[method]) {
@@ -7196,12 +7057,12 @@ Channel = (function() {
             if (m.callbacks && _.isArray(m.callbacks) && !m.callbacks.length) {
               obj = m.params;
               pathItems = path.split("/");
-              _ref = m.callbacks;
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                path = _ref[_i];
-                _ref1 = pathItems.slice(0, -1);
-                for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-                  cp = _ref1[_j];
+              _ref1 = m.callbacks;
+              for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+                path = _ref1[_i];
+                _ref2 = pathItems.slice(0, -1);
+                for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+                  cp = _ref2[_j];
                   if (!_.isObject(obj[cp])) {
                     obj[cp] = {};
                   }
@@ -7463,6 +7324,179 @@ Channel = (function() {
 
 })();
 
+module.exports = Channel;
+
+});
+require.register("samskipti/src/router.js", function(exports, require, module){
+var Router, channelId, currentTransactionId, router, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+_ = require('lodash');
+
+Router = (function() {
+  function Router() {
+    this.onMessage = __bind(this.onMessage, this);
+  }
+
+  Router.prototype.table = {};
+
+  Router.prototype.transactions = {};
+
+  Router.prototype.add = function(win, origin, scope, handler) {
+    var exists, hasWin, k;
+    hasWin = function(arr) {
+      var x, _i, _len;
+      for (_i = 0, _len = arr.length; _i < _len; _i++) {
+        x = arr[_i];
+        if (x.win === win) {
+          return true;
+        }
+      }
+      return false;
+    };
+    exists = false;
+    if (origin === "*") {
+      for (k in this.table) {
+        if (_.has(table, k) && k !== '*') {
+          if (_.isObject(table[k][scope])) {
+            if (exists = hasWin(this.table[k][scope])) {
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      if (this.table["*"] && this.table["*"][scope]) {
+        exists = hasWin(this.table["*"][scope]);
+      }
+      if (!exists && this.table[origin] && this.table[origin][scope]) {
+        exists = hasWin(this.table[origin][scope]);
+      }
+    }
+    if (exists) {
+      throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
+    }
+    if (!_.isObject(this.table[origin])) {
+      this.table[origin] = {};
+    }
+    if (!_.isObject(this.table[origin][scope])) {
+      this.table[origin][scope] = [];
+    }
+    return this.table[origin][scope].push({
+      win: win,
+      handler: handler
+    });
+  };
+
+  Router.prototype.remove = function(win, origin, scope) {
+    var x;
+    this.table[origin][scope] = (function() {
+      var _i, _len, _ref, _results;
+      _ref = this.table[origin][scope];
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        x = _ref[_i];
+        if (x.win === win) {
+          _results.push(x);
+        }
+      }
+      return _results;
+    }).call(this);
+    if (!this.table[origin][scope].length) {
+      return delete this.table[origin][scope];
+    }
+  };
+
+  Router.prototype.onMessage = function(e) {
+    var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _len, _ref, _ref1, _results;
+    try {
+      m = JSON.parse(e.data);
+      if (m === null || !_.isObject(m)) {
+        throw "malformed";
+      }
+    } catch (_error) {
+      e = _error;
+      return;
+    }
+    w = e.source;
+    o = e.origin;
+    s = void 0;
+    i = void 0;
+    meth = void 0;
+    if (typeof m.method === "string") {
+      ar = m.method.split("::");
+      if (ar.length === 2) {
+        s = ar[0], meth = ar[1];
+      } else {
+        meth = m.method;
+      }
+    }
+    if (m.id) {
+      i = m.id;
+    }
+    switch (false) {
+      case !_.isString(meth):
+        delivered = false;
+        if (this.table[o] && this.table[o][s]) {
+          for (j = _i = 0, _ref = this.table[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
+            if (!(this.table[o][s][j].win === w)) {
+              continue;
+            }
+            this.table[o][s][j].handler(o, meth, m);
+            delivered = true;
+            break;
+          }
+        }
+        if (!delivered && this.table["*"] && this.table["*"][s]) {
+          _ref1 = this.table["*"][s];
+          _results = [];
+          for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+            j = _ref1[_j];
+            if (!(j.win === w)) {
+              continue;
+            }
+            j.handler(o, meth, m);
+            break;
+          }
+          return _results;
+        }
+        break;
+      case !i:
+        if (router.transactions[i]) {
+          return router.transactions[i](o, meth, m);
+        }
+    }
+  };
+
+  return Router;
+
+})();
+
+currentTransactionId = 1;
+
+channelId = 0;
+
+router = new Router();
+
+switch (false) {
+  case !('addEventListener' in window):
+    window.addEventListener('message', router.onMessage, false);
+    break;
+  case !('attachEvent' in window):
+    window.attachEvent('onmessage', router.onMessage);
+}
+
+module.exports = {
+  currentTransactionId: currentTransactionId,
+  channelId: channelId,
+  router: router
+};
+
+});
+require.register("samskipti/src/transaction.js", function(exports, require, module){
+var Transaction,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
 Transaction = (function() {
   Transaction.prototype.completed = false;
 
@@ -7530,17 +7564,7 @@ Transaction = (function() {
 
 })();
 
-router = new Router();
-
-switch (false) {
-  case !('addEventListener' in window):
-    window.addEventListener('message', router.onMessage, false);
-    break;
-  case !('attachEvent' in window):
-    window.attachEvent('onmessage', router.onMessage);
-}
-
-module.exports = Channel;
+module.exports = Transaction;
 
 });
 
@@ -7552,4 +7576,4 @@ require.alias("lodash-lodash/index.js", "lodash/index.js");
 require.alias("timoxley-next-tick/index.js", "samskipti/deps/next-tick/index.js");
 require.alias("timoxley-next-tick/index.js", "next-tick/index.js");
 
-require.alias("samskipti/samskipti.js", "samskipti/index.js");
+require.alias("samskipti/src/channel.js", "samskipti/index.js");
