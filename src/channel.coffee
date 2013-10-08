@@ -3,7 +3,6 @@ nextTick = require 'next-tick'
 
 # Get the singleton of the router all channels use.
 { currentTransactionId, channelId, router }  = require './router'
-Transaction = require './transaction'
 
 class Channel
 
@@ -34,9 +33,6 @@ class Channel
         # Outgoing transactions.
         @outgoing = {}
         
-        # Incoming transactions.
-        @incoming = {}
-        
         # Pending messages when not ready yet.
         @pending = []
                 
@@ -53,115 +49,75 @@ class Channel
                 'params': 'ping'
             }, yes
 
-    # Shall we log to the console?
-    log: ->
-        if @debug and window.console?.log?
-            # Stringify args.
-            args = _(arguments).toArray().reduce( (all, item) ->
-                return all + ' ' + item if _.isString(item) # already a string?
-                try
-                    all + ' ' + JSON.stringify(item) # stringify then
-                catch e
-                    no # keep quiet
-            )
-            # We clearly shall...
-            console.log "[#{@channelId}]", args
-
     # On an incoming message.
     onMessage: (origin, method, message) =>
-        switch            
-            when message.id and method
-                # Do we have a handler for this method?
-                if @handlers[method]
-                    transaction = new Transaction message.id, origin, (message.callbacks or []), @
-
-                    # Try getting a response by running the handler.
-                    try
-                        response = @handlers[method] transaction, message.params
-                        # We are done, no problems.
-                        transaction.complete response
+        switch
+            # This is a message with a handler.
+            when message.id and method and @handlers[method]
+                # Try getting a response by running the handler.
+                try
+                    result = @handlers[method].apply null, [ message.params ]
+                    # We are done, no problems.
+                    @postMessage { 'id': message.id, result }
+                
+                # Problems with running the handler.
+                catch e
+                    error = 'runtime_error' ; message = null
                     
-                    # Problems with running the handler.
-                    catch e
-                        error = 'runtime_error' ; message = null
+                    # Parse the error.
+                    switch
+                        when _.isString e
+                            message = e
                         
-                        # Parse the error.
-                        switch
-                            when _.isString e
-                                message = e
-                            
-                            when _.isArray e
-                                [ error, message ] = e
+                        when _.isArray e
+                            [ error, message ] = e
 
-                            when _.isObject e
-                                if _.isString e.error
-                                    error = e.error
-                                    
-                                    switch
-                                        when not e.message
-                                            message = ''
-                                        when _.isString e.message
-                                            message = e.message
-                                        else
-                                            e = e.message
-                        
-                        # Try stringifying.
-                        unless message
-                            try
-                                message = JSON.stringify e
-                            catch e2
-                                message = do e.toString
-                        
-                        # Execute the error callback.
-                        transaction.error error, message
+                        when _.isObject e
+                            if _.isString e.error
+                                error = e.error
+                                
+                                switch
+                                    when not e.message
+                                        message = ''
+                                    when _.isString e.message
+                                        message = e.message
+                                    else
+                                        e = e.message
+                    
+                    # Try stringifying.
+                    unless message
+                        try
+                            message = JSON.stringify e
+                        catch e2
+                            message = do e.toString
+                    
+                    # Execute the error callback.
+                    @postMessage { 'id': message.id, error, message }
             
-            when message.id and message.callback
-                if not @outgoing[message.id] or not @outgoing[message.id].callbacks or not @outgoing[message.id].callbacks[message.callback]
-                    @log "ignoring invalid callback, id: #{message.id} (#{message.callback})"
-                else
-                    # XXX: what if client code raises an exception here?
-                    @outgoing[message.id].callbacks[message.callback] message.params
-            
+            # Only message id.
             when message.id
                 unless @outgoing[message.id]
                     @log "ignoring invalid response: #{message.id}"
                 else
-                    # XXX: what if client code raises an exception here?
                     { error, message, id, result } = message
                     # Has error happened?
                     if error
-                        @outgoing[id].error error, message if @outgoing[id].error
+                        @outgoing[id].error(error, message) if @outgoing[id].error
                     # Call success handler.
                     else
-                        @outgoing[id].success result or null
+                        @outgoing[id].success(result or null)
                     
                     delete @outgoing[id]
                     delete router.transactions[id]
             
-            when method
-                # tis a notification.
-                if @handlers[method]
-                    # yep, there's a handler for that.
-                    # transaction has only origin for notifications.
-                    @handlers[method] { origin }, message.params
+            # A notification.
+            when method and @handlers[method]
+                @handlers[method] { origin }, message.params
 
-    # scope method names based on cfg.scope specified when the Channel was instantiated
-    scopeMethod: (m) -> [ @scope, m ].join("::") if _.isString(@scope) and @scope.length
-
-    # a small wrapper around postmessage whose primary function is to handle the
-    # case that clients start sending messages before the other end is "ready"
-    postMessage: (msg, force=no) ->
-        throw "no message provided to postMessage" unless msg
-        @log 'will post', msg
-        
-        # Enqueue if we are not pinging or are not ready.
-        return @pending.push(msg) if not force and not @ready
-
-        @window.postMessage JSON.stringify(msg), @origin
-
+    # Ping the other window.
     onReady: (trans, type) =>
-        @log "ready msg received"
-        throw "received ready message while in ready state" if @ready
+        @log 'ready msg received'
+        throw 'received ready message while in ready state' if @ready
         
         @channelId += if type is "ping" then "-R" else "-L"
         
@@ -176,6 +132,33 @@ class Channel
 
         # flush queue
         ( @postMessage do @pending.pop while @pending.length )
+
+    # Post or enqueue messages to be posted.
+    postMessage: (message, force=no) ->
+        @log 'will post', message
+        
+        # Enqueue if we are not pinging or are not ready.
+        return @pending.push(message) if not force and not @ready
+
+        # Call the other window.
+        @window.postMessage JSON.stringify(message), @origin
+
+    # Prefix method name with its scope.
+    scopeMethod: (method) -> [ @scope, method ].join('::')
+
+    # Shall we log to the console?
+    log: ->
+        if @debug and window.console?.log?
+            # Stringify args.
+            args = _(arguments).toArray().reduce( (all, item) ->
+                return all + ' ' + item if _.isString(item) # already a string?
+                try
+                    all + ' ' + JSON.stringify(item) # stringify then
+                catch e
+                    no # keep quiet
+            )
+            # We clearly shall...
+            console.log "[#{@channelId}]", args
 
     # tries to unbind a bound message handler. returns false if not possible
     unbind: (method) ->
@@ -246,7 +229,6 @@ class Channel
         
         @ready = no
         @handlers = {}
-        @incoming = {}
         @outgoing = {}
         @origin = null
         @pending = []

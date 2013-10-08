@@ -8,7 +8,6 @@
     },
     "scripts": [
         "src/channel.coffee",
-        "src/router.coffee",
-        "src/transaction.coffee"
+        "src/router.coffee"
     ]
 }

@@ -20,9 +20,8 @@
             'debug': true
         });
         
-        chanAppsA.bind("load", function(transaction, params) {
-            throw 'some problems';
-            return params.text.split('').reverse().join('');
+        chanAppsA.bind("load", function(obj) {
+            return obj.text.split('').reverse().join('');
         });
     })();
     </script>

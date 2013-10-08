@@ -6963,7 +6963,7 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/src/channel.js", function(exports, require, module){
-var Channel, Transaction, channelId, currentTransactionId, nextTick, router, _, _ref,
+var Channel, channelId, currentTransactionId, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
@@ -6971,8 +6971,6 @@ _ = require('lodash');
 nextTick = require('next-tick');
 
 _ref = require('./router'), currentTransactionId = _ref.currentTransactionId, channelId = _ref.channelId, router = _ref.router;
-
-Transaction = require('./transaction');
 
 Channel = (function() {
   Channel.prototype.ready = false;
@@ -6996,7 +6994,6 @@ Channel = (function() {
     this.channelId = channelId++;
     this.handlers = {};
     this.outgoing = {};
-    this.incoming = {};
     this.pending = [];
     router.register(this.window, this.origin, this.scope, this.onMessage);
     this.bind('__ready', this.onReady);
@@ -7008,77 +7005,55 @@ Channel = (function() {
     });
   }
 
-  Channel.prototype.log = function() {
-    var args, _ref1;
-    if (this.debug && (((_ref1 = window.console) != null ? _ref1.log : void 0) != null)) {
-      args = _(arguments).toArray().reduce(function(all, item) {
-        var e;
-        if (_.isString(item)) {
-          return all + ' ' + item;
-        }
+  Channel.prototype.onMessage = function(origin, method, message) {
+    var e, e2, error, id, result, _ref1;
+    switch (false) {
+      case !(message.id && method && this.handlers[method]):
         try {
-          return all + ' ' + JSON.stringify(item);
+          result = this.handlers[method].apply(null, [message.params]);
+          return this.postMessage({
+            'id': message.id,
+            result: result
+          });
         } catch (_error) {
           e = _error;
-          return false;
-        }
-      });
-      return console.log("[" + this.channelId + "]", args);
-    }
-  };
-
-  Channel.prototype.onMessage = function(origin, method, message) {
-    var e, e2, error, id, response, result, transaction, _ref1;
-    switch (false) {
-      case !(message.id && method):
-        if (this.handlers[method]) {
-          transaction = new Transaction(message.id, origin, message.callbacks || [], this);
-          try {
-            response = this.handlers[method](transaction, message.params);
-            return transaction.complete(response);
-          } catch (_error) {
-            e = _error;
-            error = 'runtime_error';
-            message = null;
-            switch (false) {
-              case !_.isString(e):
-                message = e;
-                break;
-              case !_.isArray(e):
-                error = e[0], message = e[1];
-                break;
-              case !_.isObject(e):
-                if (_.isString(e.error)) {
-                  error = e.error;
-                  switch (false) {
-                    case !!e.message:
-                      message = '';
-                      break;
-                    case !_.isString(e.message):
-                      message = e.message;
-                      break;
-                    default:
-                      e = e.message;
-                  }
+          error = 'runtime_error';
+          message = null;
+          switch (false) {
+            case !_.isString(e):
+              message = e;
+              break;
+            case !_.isArray(e):
+              error = e[0], message = e[1];
+              break;
+            case !_.isObject(e):
+              if (_.isString(e.error)) {
+                error = e.error;
+                switch (false) {
+                  case !!e.message:
+                    message = '';
+                    break;
+                  case !_.isString(e.message):
+                    message = e.message;
+                    break;
+                  default:
+                    e = e.message;
                 }
-            }
-            if (!message) {
-              try {
-                message = JSON.stringify(e);
-              } catch (_error) {
-                e2 = _error;
-                message = e.toString();
               }
-            }
-            return transaction.error(error, message);
           }
-        }
-        break;
-      case !(message.id && message.callback):
-        if (!this.outgoing[message.id] || !this.outgoing[message.id].callbacks || !this.outgoing[message.id].callbacks[message.callback]) {
-          return this.log("ignoring invalid callback, id: " + message.id + " (" + message.callback + ")");
-        } else {
-          return this.outgoing[message.id].callbacks[message.callback](message.params);
+          if (!message) {
+            try {
+              message = JSON.stringify(e);
+            } catch (_error) {
+              e2 = _error;
+              message = e.toString();
+            }
+          }
+          return this.postMessage({
+            'id': message.id,
+            error: error,
+            message: message
+          });
         }
         break;
       case !message.id:
@@ -7097,40 +7072,18 @@ Channel = (function() {
           return delete router.transactions[id];
         }
         break;
-      case !method:
-        if (this.handlers[method]) {
-          return this.handlers[method]({
-            origin: origin
-          }, message.params);
-        }
+      case !(method && this.handlers[method]):
+        return this.handlers[method]({
+          origin: origin
+        }, message.params);
     }
-  };
-
-  Channel.prototype.scopeMethod = function(m) {
-    if (_.isString(this.scope) && this.scope.length) {
-      return [this.scope, m].join("::");
-    }
-  };
-
-  Channel.prototype.postMessage = function(msg, force) {
-    if (force == null) {
-      force = false;
-    }
-    if (!msg) {
-      throw "no message provided to postMessage";
-    }
-    this.log('will post', msg);
-    if (!force && !this.ready) {
-      return this.pending.push(msg);
-    }
-    return this.window.postMessage(JSON.stringify(msg), this.origin);
   };
 
   Channel.prototype.onReady = function(trans, type) {
     var _results;
-    this.log("ready msg received");
+    this.log('ready msg received');
     if (this.ready) {
-      throw "received ready message while in ready state";
+      throw 'received ready message while in ready state';
     }
     this.channelId += type === "ping" ? "-R" : "-L";
     this.unbind("__ready");
@@ -7147,6 +7100,40 @@ Channel = (function() {
       _results.push(this.postMessage(this.pending.pop()));
     }
     return _results;
+  };
+
+  Channel.prototype.postMessage = function(message, force) {
+    if (force == null) {
+      force = false;
+    }
+    this.log('will post', message);
+    if (!force && !this.ready) {
+      return this.pending.push(message);
+    }
+    return this.window.postMessage(JSON.stringify(message), this.origin);
+  };
+
+  Channel.prototype.scopeMethod = function(method) {
+    return [this.scope, method].join('::');
+  };
+
+  Channel.prototype.log = function() {
+    var args, _ref1;
+    if (this.debug && (((_ref1 = window.console) != null ? _ref1.log : void 0) != null)) {
+      args = _(arguments).toArray().reduce(function(all, item) {
+        var e;
+        if (_.isString(item)) {
+          return all + ' ' + item;
+        }
+        try {
+          return all + ' ' + JSON.stringify(item);
+        } catch (_error) {
+          e = _error;
+          return false;
+        }
+      });
+      return console.log("[" + this.channelId + "]", args);
+    }
   };
 
   Channel.prototype.unbind = function(method) {
@@ -7228,7 +7215,6 @@ Channel = (function() {
     }
     this.ready = false;
     this.handlers = {};
-    this.incoming = {};
     this.outgoing = {};
     this.origin = null;
     this.pending = [];
@@ -7414,83 +7400,6 @@ module.exports = {
   channelId: channelId,
   router: router
 };
-
-});
-require.register("samskipti/src/transaction.js", function(exports, require, module){
-var Transaction,
-  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
-
-Transaction = (function() {
-  Transaction.prototype.completed = false;
-
-  function Transaction(id, origin, callbacks, channel) {
-    this.id = id;
-    this.origin = origin;
-    this.callbacks = callbacks;
-    this.channel = channel;
-    this.complete = __bind(this.complete, this);
-    this.error = __bind(this.error, this);
-    this.invoke = __bind(this.invoke, this);
-    this.channel.incoming[this.id] = {};
-  }
-
-  Transaction.prototype.invoke = function(callback, params) {
-    if (!this.channel.incoming[this.id]) {
-      throw "attempting to invoke a callback of a nonexistent transaction: " + this.id;
-    }
-    if ((function() {
-      var cb, _i, _len, _ref;
-      _ref = this.callbacks;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        cb = _ref[_i];
-        if (cb === callback) {
-          return true;
-        }
-      }
-    })()) {
-      return this.channel.postMessage({
-        id: this.id,
-        params: params,
-        callback: callback
-      });
-    } else {
-      throw "request supports no such callback '" + callback + "'";
-    }
-  };
-
-  Transaction.prototype.error = function(error, message) {
-    this.completed = true;
-    if (!this.channel.incoming[this.id]) {
-      throw "error called for nonexistent message: " + this.id;
-    }
-    delete this.channel.incoming[this.id];
-    return this.channel.postMessage({
-      id: this.id,
-      error: error,
-      message: message
-    });
-  };
-
-  Transaction.prototype.complete = function(result) {
-    if (this.completed) {
-      return;
-    }
-    this.completed = true;
-    if (!this.channel.incoming[this.id]) {
-      throw "complete called for nonexistent message: " + this.id;
-    }
-    delete this.channel.incoming[this.id];
-    return this.channel.postMessage({
-      id: this.id,
-      result: result
-    });
-  };
-
-  return Transaction;
-
-})();
-
-module.exports = Transaction;
 
 });
 
