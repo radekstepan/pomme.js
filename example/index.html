@@ -18,13 +18,13 @@
         var Sam = require('samskipti');
         
         var chanAppsA = new Sam({
-            'window': document.getElementById("child").contentWindow,
-            'scope': "appsA",
+            'window': document.getElementById('child').contentWindow,
+            'scope': 'appsA',
             'debug': true
         });
 
-        chanAppsA.call({
-            'method': "load",
+        chanAppsA.trigger({
+            'method': 'load',
             'params': {
                 'text': 'ABC'
             },

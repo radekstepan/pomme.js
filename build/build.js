@@ -6963,14 +6963,14 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/src/channel.js", function(exports, require, module){
-var Channel, channelId, currentTransactionId, nextTick, router, _, _ref,
+var Channel, channelId, nextTick, router, transaction, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
 
 nextTick = require('next-tick');
 
-_ref = require('./router'), currentTransactionId = _ref.currentTransactionId, channelId = _ref.channelId, router = _ref.router;
+_ref = require('./router'), transaction = _ref.transaction, channelId = _ref.channelId, router = _ref.router;
 
 Channel = (function() {
   Channel.prototype.ready = false;
@@ -6996,7 +6996,7 @@ Channel = (function() {
     this.outgoing = {};
     this.pending = [];
     router.register(this.window, this.origin, this.scope, this.onMessage);
-    this.bind('__ready', this.onReady);
+    this.on('__ready', this.onReady);
     nextTick(function() {
       return _this.postMessage({
         'method': _this.scopeMethod('__ready'),
@@ -7007,12 +7007,13 @@ Channel = (function() {
 
   Channel.prototype.onMessage = function(origin, method, message) {
     var e, e2, error, id, result, _ref1;
+    id = message.id;
     switch (false) {
-      case !(message.id && method && this.handlers[method]):
+      case !(id && method && this.handlers[method]):
         try {
           result = this.handlers[method].apply(null, [message.params]);
           return this.postMessage({
-            'id': message.id,
+            id: id,
             result: result
           });
         } catch (_error) {
@@ -7050,15 +7051,15 @@ Channel = (function() {
             }
           }
           return this.postMessage({
-            'id': message.id,
+            id: id,
             error: error,
             message: message
           });
         }
         break;
-      case !message.id:
-        if (!this.outgoing[message.id]) {
-          return this.log("ignoring invalid response: " + message.id);
+      case !id:
+        if (!this.outgoing[id]) {
+          return this.log("ignoring invalid response: " + id);
         } else {
           _ref1 = message, error = _ref1.error, message = _ref1.message, id = _ref1.id, result = _ref1.result;
           if (error) {
@@ -7085,14 +7086,14 @@ Channel = (function() {
     if (this.ready) {
       throw 'received ready message while in ready state';
     }
-    this.channelId += type === "ping" ? "-R" : "-L";
-    this.unbind("__ready");
+    this.channelId += type === 'ping' ? ':A' : ':B';
+    this.unbind('__ready');
     this.ready = true;
-    this.log("ready msg accepted.");
-    if (type === "ping") {
-      this.notify({
-        'method': "__ready",
-        'params': "pong"
+    this.log('ready msg accepted');
+    if (type === 'ping') {
+      this.trigger({
+        'method': '__ready',
+        'params': 'pong'
       });
     }
     _results = [];
@@ -7136,17 +7137,7 @@ Channel = (function() {
     }
   };
 
-  Channel.prototype.unbind = function(method) {
-    if (this.handlers[method]) {
-      if (!delete this.handlers[method]) {
-        throw "can't delete method: " + method;
-      }
-      return true;
-    }
-    return false;
-  };
-
-  Channel.prototype.bind = function(method, cb) {
+  Channel.prototype.on = function(method, cb) {
     if (!method || !_.isString(method)) {
       throw '`method` must be string';
     }
@@ -7160,66 +7151,45 @@ Channel = (function() {
     return this;
   };
 
-  Channel.prototype.call = function(message) {
-    var error, payload, success;
+  Channel.prototype.trigger = function(message) {
+    var error, method, params, payload, success;
     if (!message) {
-      throw 'missing arguments to call function';
+      throw 'missing arguments to trigger function';
     }
     if (!_.isString(message.method)) {
-      throw '`method` argument to call must be string';
+      throw '`method` argument to trigger must be string';
+    }
+    method = message.method, params = message.params;
+    method = this.scopeMethod(method);
+    if (!(message.succes || message.error)) {
+      return this.postMessage({
+        method: method,
+        params: params
+      });
     }
     if (!_.isFunction(message.success)) {
-      throw '`success` callback missing from call';
+      throw '`success` callback missing from trigger';
     }
     if (!_.isFunction(message.error)) {
-      throw '`error` callback missing from call';
+      throw '`error` callback missing from trigger';
     }
     payload = {
-      'id': currentTransactionId,
-      'method': this.scopeMethod(message.method),
-      'params': message.params
+      'id': transaction,
+      method: method,
+      params: params
     };
     error = message.error, success = message.success;
-    this.outgoing[currentTransactionId] = {
+    this.outgoing[transaction] = {
       error: error,
       success: success
     };
-    router.transactions[currentTransactionId] = this.onMessage;
-    currentTransactionId++;
+    router.transactions[transaction] = this.onMessage;
+    transaction++;
     return this.postMessage(payload);
   };
 
-  Channel.prototype.notify = function(m) {
-    if (!m) {
-      throw "missing arguments to notify function";
-    }
-    if (!_.isString(m.method)) {
-      throw "'method' argument to notify must be string";
-    }
-    return this.postMessage({
-      'method': this.scopeMethod(m.method),
-      'params': m.params
-    });
-  };
-
-  Channel.prototype.destroy = function() {
-    var scope;
-    scope = _.isString(this.scope) ? this.scope : '';
-    router.remove(this.window, this.origin, scope);
-    switch (false) {
-      case !('removeEventListener' in window):
-        window.removeEventListener("message", this.onMessage, false);
-        break;
-      case !('detachEvent' in window):
-        window.detachEvent("onmessage", this.onMessage);
-    }
-    this.ready = false;
-    this.handlers = {};
-    this.outgoing = {};
-    this.origin = null;
-    this.pending = [];
-    this.log("channel destroyed");
-    return this.channelId = "";
+  Channel.prototype.unbind = function(method) {
+    return delete this.handlers[method];
   };
 
   return Channel;
@@ -7230,7 +7200,7 @@ module.exports = Channel;
 
 });
 require.register("samskipti/src/router.js", function(exports, require, module){
-var Router, channelId, currentTransactionId, router, _,
+var Router, channelId, router, transaction, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
@@ -7381,7 +7351,7 @@ if (!('postMessage' in window)) {
   throw 'Samskipti cannot run in this browser, no postMessage';
 }
 
-currentTransactionId = 1;
+transaction = 1;
 
 channelId = 0;
 
@@ -7396,7 +7366,7 @@ switch (false) {
 }
 
 module.exports = {
-  currentTransactionId: currentTransactionId,
+  transaction: transaction,
   channelId: channelId,
   router: router
 };

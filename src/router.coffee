@@ -41,6 +41,7 @@ class Router
         @table[origin][scope] = [] unless _.isObject @table[origin][scope]
         @table[origin][scope].push { win, handler }
 
+    # Remove a channel.
     remove: (win, origin, scope) ->
         @table[origin][scope] = ( x for x in @table[origin][scope] when x.win is win )
         delete @table[origin][scope] unless @table[origin][scope].length
@@ -104,7 +105,7 @@ class Router
 throw ('Samskipti cannot run in this browser, no postMessage') unless 'postMessage' of window
 
 # Transaction id.
-currentTransactionId = 1
+transaction = 1
 # Channel id.
 channelId = 0
 
@@ -120,4 +121,4 @@ switch
         window.attachEvent 'onmessage', router.onMessage
 
 # All for one.
-module.exports = { currentTransactionId, channelId, router }
+module.exports = { transaction, channelId, router }

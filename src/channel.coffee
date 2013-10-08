@@ -2,7 +2,7 @@ _        = require 'lodash'
 nextTick = require 'next-tick'
 
 # Get the singleton of the router all channels use.
-{ currentTransactionId, channelId, router }  = require './router'
+{ transaction, channelId, router }  = require './router'
 
 class Channel
 
@@ -40,7 +40,7 @@ class Channel
         router.register @window, @origin, @scope, @onMessage
 
         # Be ready when we are ready...
-        @bind '__ready', @onReady
+        @on '__ready', @onReady
 
         # Say to the other window we are ready. Need to force the message.
         nextTick =>
@@ -51,14 +51,16 @@ class Channel
 
     # On an incoming message.
     onMessage: (origin, method, message) =>
+        { id } = message
+
         switch
             # This is a message with a handler.
-            when message.id and method and @handlers[method]
+            when id and method and @handlers[method]
                 # Try getting a response by running the handler.
                 try
                     result = @handlers[method].apply null, [ message.params ]
                     # We are done, no problems.
-                    @postMessage { 'id': message.id, result }
+                    @postMessage { id, result }
                 
                 # Problems with running the handler.
                 catch e
@@ -92,12 +94,12 @@ class Channel
                             message = do e.toString
                     
                     # Execute the error callback.
-                    @postMessage { 'id': message.id, error, message }
+                    @postMessage { id, error, message }
             
             # Only message id.
-            when message.id
-                unless @outgoing[message.id]
-                    @log "ignoring invalid response: #{message.id}"
+            when id
+                unless @outgoing[id]
+                    @log "ignoring invalid response: #{id}"
                 else
                     { error, message, id, result } = message
                     # Has error happened?
@@ -119,18 +121,25 @@ class Channel
         @log 'ready msg received'
         throw 'received ready message while in ready state' if @ready
         
-        @channelId += if type is "ping" then "-R" else "-L"
+        # Set who is parent/child.
+        @channelId += if type is 'ping' then ':A' else ':B'
         
-        @unbind "__ready" # now this handler isn't needed any more.
-        @ready = yes
-        @log "ready msg accepted."
-        
-        @notify {
-            'method': "__ready"
-            'params': "pong"
-        } if type is "ping"
+        # No longer need to be called.
+        @unbind '__ready'
 
-        # flush queue
+        # Am ready.
+        @ready = yes
+        
+        # Say so.
+        @log 'ready msg accepted'
+        
+        # Call back?
+        @trigger {
+            'method': '__ready'
+            'params': 'pong'
+        } if type is 'ping'
+
+        # Post enqueued messages.
         ( @postMessage do @pending.pop while @pending.length )
 
     # Post or enqueue messages to be posted.
@@ -144,7 +153,8 @@ class Channel
         @window.postMessage JSON.stringify(message), @origin
 
     # Prefix method name with its scope.
-    scopeMethod: (method) -> [ @scope, method ].join('::')
+    scopeMethod: (method) ->
+        [ @scope, method ].join('::')
 
     # Shall we log to the console?
     log: ->
@@ -160,15 +170,8 @@ class Channel
             # We clearly shall...
             console.log "[#{@channelId}]", args
 
-    # tries to unbind a bound message handler. returns false if not possible
-    unbind: (method) ->
-        if @handlers[method]
-            throw ("can't delete method: #{method}") unless delete @handlers[method]
-            return yes
-        no
-
-    # Bind a method to a handler.
-    bind: (method, cb) ->
+    # Register a method handler. One window saying what to do on receiving msg.
+    on: (method, cb) ->
         throw '`method` must be string' if not method or not _.isString method
         throw 'callback missing' if not cb or not _.isFunction cb
         throw "method `#{method}` is already bound" if @handlers[method]
@@ -177,63 +180,42 @@ class Channel
         
         @
 
-    # Post a message after pruning fns from params.
-    call: (message) ->
+    # Interface to trigger a message post.
+    trigger: (message) ->
         # Validate.
-        throw 'missing arguments to call function' unless message
-        throw '`method` argument to call must be string' unless _.isString message.method
-        throw '`success` callback missing from call' unless _.isFunction message.success
-        throw '`error` callback missing from call' unless _.isFunction message.error
+        throw 'missing arguments to trigger function' unless message
+        throw '`method` argument to trigger must be string' unless _.isString message.method
+        
+        { method, params } = message
+
+        method = @scopeMethod method
+
+        # Just notify?
+        unless message.succes or message.error
+            # Post a message without creating a transaction. Like ping/pong.
+            return @postMessage { method, params }
+
+        throw '`success` callback missing from trigger' unless _.isFunction message.success
+        throw '`error` callback missing from trigger' unless _.isFunction message.error
 
         # Build a 'request' message and send it.
-        payload = {
-            'id': currentTransactionId
-            'method': @scopeMethod(message.method)
-            'params': message.params
-        }
+        payload = { 'id': transaction, method, params }
         
         # Get the error and success callbacks.
         { error, success } = message
 
         # Insert message into outgoing bin.
-        @outgoing[currentTransactionId] = { error, success }
-        router.transactions[currentTransactionId] = @onMessage
+        @outgoing[transaction] = { error, success }
+        router.transactions[transaction] = @onMessage
         
         # Ready for the next transaction.
-        currentTransactionId++
+        transaction++
 
         # Post it.
         @postMessage payload
 
-    notify: (m) ->
-        throw "missing arguments to notify function" unless m
-        throw "'method' argument to notify must be string" unless _.isString m.method
-        
-        # no need to go into any transaction table
-        @postMessage {
-            'method': @scopeMethod(m.method)
-            'params': m.params
-        }
-
-
-    destroy: ->
-        scope = if _.isString(@scope) then @scope else ''
-        router.remove @window, @origin, scope
-
-        switch
-            when 'removeEventListener' of window
-                window.removeEventListener "message", @onMessage, no
-
-            when 'detachEvent' of window
-                window.detachEvent "onmessage", @onMessage
-        
-        @ready = no
-        @handlers = {}
-        @outgoing = {}
-        @origin = null
-        @pending = []
-        
-        @log "channel destroyed"
-        @channelId = ""
+    # Unregister a method handler. Primarily used internally.
+    unbind: (method) ->
+        delete @handlers[method]
 
 module.exports = Channel
