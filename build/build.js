@@ -6963,7 +6963,7 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/samskipti.js", function(exports, require, module){
-var Samskipti, Transaction, chanId, nextTick, s_addBoundChan, s_boundChans, s_curTranId, s_onMessage, s_removeBoundChan, s_transIds, _,
+var Channel, Router, Transaction, channelId, currentTransactionId, nextTick, router, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -6971,156 +6971,157 @@ _ = require('lodash');
 
 nextTick = require('next-tick');
 
-s_curTranId = 1;
+currentTransactionId = 1;
 
-chanId = 0;
+channelId = 0;
 
-s_boundChans = {};
+Router = (function() {
+  function Router() {
+    this.onMessage = __bind(this.onMessage, this);
+  }
 
-s_addBoundChan = function(win, origin, scope, handler) {
-  var exists, hasWin, k;
-  hasWin = function(arr) {
-    var x, _i, _len;
-    for (_i = 0, _len = arr.length; _i < _len; _i++) {
-      x = arr[_i];
-      if (x.win === win) {
-        return true;
+  Router.prototype.table = {};
+
+  Router.prototype.transactions = {};
+
+  Router.prototype.add = function(win, origin, scope, handler) {
+    var exists, hasWin, k;
+    hasWin = function(arr) {
+      var x, _i, _len;
+      for (_i = 0, _len = arr.length; _i < _len; _i++) {
+        x = arr[_i];
+        if (x.win === win) {
+          return true;
+        }
+      }
+      return false;
+    };
+    exists = false;
+    if (origin === "*") {
+      for (k in this.table) {
+        if (_.has(table, k) && k !== '*') {
+          if (_.isObject(table[k][scope])) {
+            if (exists = hasWin(this.table[k][scope])) {
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      if (this.table["*"] && this.table["*"][scope]) {
+        exists = hasWin(this.table["*"][scope]);
+      }
+      if (!exists && this.table[origin] && this.table[origin][scope]) {
+        exists = hasWin(this.table[origin][scope]);
       }
     }
-    return false;
+    if (exists) {
+      throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
+    }
+    if (!_.isObject(this.table[origin])) {
+      this.table[origin] = {};
+    }
+    if (!_.isObject(this.table[origin][scope])) {
+      this.table[origin][scope] = [];
+    }
+    return this.table[origin][scope].push({
+      win: win,
+      handler: handler
+    });
   };
-  exists = false;
-  if (origin === "*") {
-    for (k in s_boundChans) {
-      if (_.has(s_boundChans, k) && k !== '*') {
-        if (_.isObject(s_boundChans[k][scope])) {
-          if (exists = hasWin(s_boundChans[k][scope])) {
+
+  Router.prototype.remove = function(win, origin, scope) {
+    var x;
+    this.table[origin][scope] = (function() {
+      var _i, _len, _ref, _results;
+      _ref = this.table[origin][scope];
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        x = _ref[_i];
+        if (x.win === win) {
+          _results.push(x);
+        }
+      }
+      return _results;
+    }).call(this);
+    if (!this.table[origin][scope].length) {
+      return delete this.table[origin][scope];
+    }
+  };
+
+  Router.prototype.onMessage = function(e) {
+    var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _len, _ref, _ref1, _results;
+    try {
+      m = JSON.parse(e.data);
+      if (m === null || !_.isObject(m)) {
+        throw "malformed";
+      }
+    } catch (_error) {
+      e = _error;
+      return;
+    }
+    w = e.source;
+    o = e.origin;
+    s = void 0;
+    i = void 0;
+    meth = void 0;
+    if (typeof m.method === "string") {
+      ar = m.method.split("::");
+      if (ar.length === 2) {
+        s = ar[0], meth = ar[1];
+      } else {
+        meth = m.method;
+      }
+    }
+    if (m.id) {
+      i = m.id;
+    }
+    switch (false) {
+      case !_.isString(meth):
+        delivered = false;
+        if (this.table[o] && this.table[o][s]) {
+          for (j = _i = 0, _ref = this.table[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
+            if (!(this.table[o][s][j].win === w)) {
+              continue;
+            }
+            this.table[o][s][j].handler(o, meth, m);
+            delivered = true;
             break;
           }
         }
-      }
-    }
-  } else {
-    if (s_boundChans["*"] && s_boundChans["*"][scope]) {
-      exists = hasWin(s_boundChans["*"][scope]);
-    }
-    if (!exists && s_boundChans[origin] && s_boundChans[origin][scope]) {
-      exists = hasWin(s_boundChans[origin][scope]);
-    }
-  }
-  if (exists) {
-    throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
-  }
-  if (!_.isObject(s_boundChans[origin])) {
-    s_boundChans[origin] = {};
-  }
-  if (!_.isObject(s_boundChans[origin][scope])) {
-    s_boundChans[origin][scope] = [];
-  }
-  return s_boundChans[origin][scope].push({
-    win: win,
-    handler: handler
-  });
-};
-
-s_removeBoundChan = function(win, origin, scope) {
-  var x;
-  s_boundChans[origin][scope] = (function() {
-    var _i, _len, _ref, _results;
-    _ref = s_boundChans[origin][scope];
-    _results = [];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      x = _ref[_i];
-      if (x.win === win) {
-        _results.push(x);
-      }
-    }
-    return _results;
-  })();
-  if (!s_boundChans[origin][scope].length) {
-    return delete s_boundChans[origin][scope];
-  }
-};
-
-s_transIds = {};
-
-s_onMessage = function(e) {
-  var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _len, _ref, _ref1, _results;
-  try {
-    m = JSON.parse(e.data);
-    if (m === null || !_.isObject(m)) {
-      throw "malformed";
-    }
-  } catch (_error) {
-    e = _error;
-    return;
-  }
-  w = e.source;
-  o = e.origin;
-  s = void 0;
-  i = void 0;
-  meth = void 0;
-  if (typeof m.method === "string") {
-    ar = m.method.split("::");
-    if (ar.length === 2) {
-      s = ar[0], meth = ar[1];
-    } else {
-      meth = m.method;
-    }
-  }
-  if (m.id) {
-    i = m.id;
-  }
-  switch (false) {
-    case !_.isString(meth):
-      delivered = false;
-      if (s_boundChans[o] && s_boundChans[o][s]) {
-        for (j = _i = 0, _ref = s_boundChans[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
-          if (!(s_boundChans[o][s][j].win === w)) {
-            continue;
+        if (!delivered && this.table["*"] && this.table["*"][s]) {
+          _ref1 = this.table["*"][s];
+          _results = [];
+          for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+            j = _ref1[_j];
+            if (!(j.win === w)) {
+              continue;
+            }
+            j.handler(o, meth, m);
+            break;
           }
-          s_boundChans[o][s][j].handler(o, meth, m);
-          delivered = true;
-          break;
+          return _results;
         }
-      }
-      if (!delivered && s_boundChans["*"] && s_boundChans["*"][s]) {
-        _ref1 = s_boundChans["*"][s];
-        _results = [];
-        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
-          j = _ref1[_j];
-          if (!(j.win === w)) {
-            continue;
-          }
-          j.handler(o, meth, m);
-          break;
+        break;
+      case !i:
+        if (router.transactions[i]) {
+          return router.transactions[i](o, meth, m);
         }
-        return _results;
-      }
-      break;
-    case !i:
-      if (s_transIds[i]) {
-        return s_transIds[i](o, meth, m);
-      }
-  }
-};
+    }
+  };
 
-switch (false) {
-  case !('addEventListener' in window):
-    window.addEventListener('message', s_onMessage, false);
-    break;
-  case !('attachEvent' in window):
-    window.attachEvent('onmessage', s_onMessage);
-}
+  return Router;
 
-Samskipti = (function() {
-  Samskipti.prototype.ready = false;
+})();
 
-  Samskipti.prototype.origin = '*';
+Channel = (function() {
+  Channel.prototype.ready = false;
 
-  Samskipti.prototype.scope = 'testScope';
+  Channel.prototype.origin = '*';
 
-  function Samskipti(opts) {
+  Channel.prototype.scope = 'testScope';
+
+  function Channel(opts) {
     this.onReady = __bind(this.onReady, this);
     this.onMessage = __bind(this.onMessage, this);
     var k, msg, v,
@@ -7138,13 +7139,13 @@ Samskipti = (function() {
     if (window === this.window) {
       throw "Samskipti target window is same as present window";
     }
-    this.chanId = chanId++;
+    this.channelId = channelId++;
     this.regTbl = {};
     this.outTbl = {};
     this.inTbl = {};
     this.pendingQueue = [];
     msg = this.scope || '';
-    s_addBoundChan(this.window, this.origin, msg, this.onMessage);
+    router.add(this.window, this.origin, msg, this.onMessage);
     this.bind("__ready", this.onReady);
     nextTick(function() {
       return _this.postMessage({
@@ -7154,7 +7155,7 @@ Samskipti = (function() {
     });
   }
 
-  Samskipti.prototype.log = function() {
+  Channel.prototype.log = function() {
     var args, _ref;
     if (this.debug && (((_ref = window.console) != null ? _ref.log : void 0) != null)) {
       args = _(arguments).toArray().reduce(function(all, item) {
@@ -7169,23 +7170,23 @@ Samskipti = (function() {
           return false;
         }
       });
-      return console.log("[" + this.chanId + "]", args);
+      return console.log("[" + this.channelId + "]", args);
     }
   };
 
-  Samskipti.prototype.setTransactionTimeout = function(transId, timeout, method) {
+  Channel.prototype.setTransactionTimeout = function(transId, timeout, method) {
     return window.setTimeout((function() {
       var msg;
       if (this.outTbl[transId]) {
         msg = "timeout (" + timeout + "ms) exceeded on method '" + method + "'";
         this.outTbl[transId].error("timeout_error", msg);
         delete this.outTbl[transId];
-        return delete s_transIds[transId];
+        return delete router.transactions[transId];
       }
     }), timeout);
   };
 
-  Samskipti.prototype.onMessage = function(origin, method, m) {
+  Channel.prototype.onMessage = function(origin, method, m) {
     var cp, e, e2, error, id, message, obj, path, pathItems, resp, result, transaction, _i, _j, _len, _len1, _ref, _ref1;
     switch (false) {
       case !(m.id && method):
@@ -7277,7 +7278,7 @@ Samskipti = (function() {
             this.outTbl[id].success(result || null);
           }
           delete this.outTbl[id];
-          return delete s_transIds[id];
+          return delete router.transactions[id];
         }
         break;
       case !method:
@@ -7289,13 +7290,13 @@ Samskipti = (function() {
     }
   };
 
-  Samskipti.prototype.scopeMethod = function(m) {
+  Channel.prototype.scopeMethod = function(m) {
     if (_.isString(this.scope) && this.scope.length) {
       return [this.scope, m].join("::");
     }
   };
 
-  Samskipti.prototype.postMessage = function(msg, force) {
+  Channel.prototype.postMessage = function(msg, force) {
     if (force == null) {
       force = false;
     }
@@ -7309,13 +7310,13 @@ Samskipti = (function() {
     return this.window.postMessage(JSON.stringify(msg), this.origin);
   };
 
-  Samskipti.prototype.onReady = function(trans, type) {
+  Channel.prototype.onReady = function(trans, type) {
     var _results;
     this.log("ready msg received");
     if (this.ready) {
       throw "received ready message while in ready state";
     }
-    this.chanId += type === "ping" ? "-R" : "-L";
+    this.channelId += type === "ping" ? "-R" : "-L";
     this.unbind("__ready");
     this.ready = true;
     this.log("ready msg accepted.");
@@ -7332,7 +7333,7 @@ Samskipti = (function() {
     return _results;
   };
 
-  Samskipti.prototype.unbind = function(method) {
+  Channel.prototype.unbind = function(method) {
     if (this.regTbl[method]) {
       if (!delete this.regTbl[method]) {
         throw "can't delete method: " + method;
@@ -7342,7 +7343,7 @@ Samskipti = (function() {
     return false;
   };
 
-  Samskipti.prototype.bind = function(method, cb) {
+  Channel.prototype.bind = function(method, cb) {
     if (!method || !_.isString(method)) {
       throw "'method' argument to bind must be string";
     }
@@ -7356,7 +7357,7 @@ Samskipti = (function() {
     return this;
   };
 
-  Samskipti.prototype.call = function(m) {
+  Channel.prototype.call = function(m) {
     var callbackNames, callbacks, error, msg, pruneFunctions, seen, success;
     if (!m) {
       throw "missing arguments to call function";
@@ -7403,7 +7404,7 @@ Samskipti = (function() {
     };
     pruneFunctions("", m.params);
     msg = {
-      'id': s_curTranId,
+      'id': currentTransactionId,
       'method': this.scopeMethod(m.method),
       'params': m.params
     };
@@ -7411,20 +7412,20 @@ Samskipti = (function() {
       msg.callbacks = callbackNames;
     }
     if (m.timeout) {
-      setTransactionTimeout(s_curTranId, m.timeout, this.scopeMethod(m.method));
+      setTransactionTimeout(currentTransactionId, m.timeout, this.scopeMethod(m.method));
     }
     error = m.error, success = m.success;
-    this.outTbl[s_curTranId] = {
+    this.outTbl[currentTransactionId] = {
       callbacks: callbacks,
       error: error,
       success: success
     };
-    s_transIds[s_curTranId] = this.onMessage;
-    s_curTranId++;
+    router.transactions[currentTransactionId] = this.onMessage;
+    currentTransactionId++;
     return this.postMessage(msg);
   };
 
-  Samskipti.prototype.notify = function(m) {
+  Channel.prototype.notify = function(m) {
     if (!m) {
       throw "missing arguments to notify function";
     }
@@ -7437,10 +7438,10 @@ Samskipti = (function() {
     });
   };
 
-  Samskipti.prototype.destroy = function() {
+  Channel.prototype.destroy = function() {
     var scope;
     scope = _.isString(this.scope) ? this.scope : '';
-    s_removeBoundChan(this.window, this.origin, scope);
+    router.remove(this.window, this.origin, scope);
     switch (false) {
       case !('removeEventListener' in window):
         window.removeEventListener("message", this.onMessage, false);
@@ -7455,10 +7456,10 @@ Samskipti = (function() {
     this.origin = null;
     this.pendingQueue = [];
     this.log("channel destroyed");
-    return this.chanId = "";
+    return this.channelId = "";
   };
 
-  return Samskipti;
+  return Channel;
 
 })();
 
@@ -7529,7 +7530,17 @@ Transaction = (function() {
 
 })();
 
-module.exports = Samskipti;
+router = new Router();
+
+switch (false) {
+  case !('addEventListener' in window):
+    window.addEventListener('message', router.onMessage, false);
+    break;
+  case !('attachEvent' in window):
+    window.attachEvent('onmessage', router.onMessage);
+}
+
+module.exports = Channel;
 
 });
 

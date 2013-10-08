@@ -2,122 +2,113 @@ _        = require 'lodash'
 nextTick = require 'next-tick'
   
 # Transaction id.
-s_curTranId = 1
+currentTransactionId = 1
 # Channel id.
-chanId = 0
+channelId = 0
 
-# no two bound channels in the same javascript evaluation context may have the same origin, scope, and root.
-# futher if two bound channels have the same root and scope, they may not have *overlapping* origins
-# (either one or both support '*').    This restriction allows a single onMessage handler to efficiently
-# route messages based on origin and scope.    The s_boundChans maps origins to scopes, to message
-# handlers.    Request and Notification messages are routed using this table.
-# Finally, channels are inserted into this table when built, and removed when destroyed.
-s_boundChans = {}
+# Maintain a routing table.
+class Router
 
-# add a channel to s_boundChans, throwing if a dup exists
-s_addBoundChan = (win, origin, scope, handler) ->        
-    hasWin = (arr) ->
-        ( return yes for x in arr when x.win is win )
-        no
+    # Routing table from origins to scopes, to message handlers.
+    table: {}
 
-    # does she exist?
-    exists = no
-    
-    if origin is "*"    
-        # we must check all other origins, sadly.
-        for k of s_boundChans when _.has(s_boundChans, k) and k isnt '*'
-            if _.isObject s_boundChans[k][scope]
-                break if exists = hasWin s_boundChans[k][scope]
-    
-    else
-        # we must check only '*'
-        if s_boundChans["*"] and s_boundChans["*"][scope]
-            exists = hasWin s_boundChans["*"][scope]
+    # No two outstanding outbound messages may have the same id, period.    Given that, a single table
+    # mapping "transaction ids" to message handlers, allows efficient routing of Callback, Error, and
+    # Response messages.    Entries are added to this table when requests are sent, and removed when
+    # responses are received.
+    transactions: {}
 
-        if not exists and s_boundChans[origin] and s_boundChans[origin][scope]
-            exists = hasWin s_boundChans[origin][scope]
+    # add a channel to router table, throwing if a dup exists
+    add: (win, origin, scope, handler) ->
+        hasWin = (arr) ->
+            ( return yes for x in arr when x.win is win )
+            no
 
-    throw "A channel is already bound to the same window which overlaps with origin '#{origin}' and has scope '#{scope}'" if exists
-    
-    s_boundChans[origin] = {} unless _.isObject s_boundChans[origin]
-    s_boundChans[origin][scope] = [] unless _.isObject s_boundChans[origin][scope]
-    s_boundChans[origin][scope].push { win, handler }
-
-s_removeBoundChan = (win, origin, scope) ->
-    s_boundChans[origin][scope] = ( x for x in s_boundChans[origin][scope] when x.win is win )
-    delete s_boundChans[origin][scope] unless s_boundChans[origin][scope].length
-
-# No two outstanding outbound messages may have the same id, period.    Given that, a single table
-# mapping "transaction ids" to message handlers, allows efficient routing of Callback, Error, and
-# Response messages.    Entries are added to this table when requests are sent, and removed when
-# responses are received.
-s_transIds = {}
-
-# class singleton onMessage handler
-# this function is registered once and all incoming messages route through here.    This
-# arrangement allows certain efficiencies, message data is only parsed once and dispatch
-# is more efficient, especially for large numbers of simultaneous channels.
-s_onMessage = (e) ->
-    try
-        m = JSON.parse(e.data)
-        throw "malformed" if m is null or not _.isObject(m)
-    catch e
-        # just ignore any posted messages that do not consist of valid JSON
-        return
-    
-    w = e.source
-    o = e.origin
-    s = undefined
-    i = undefined
-    meth = undefined
-
-    if typeof m.method is "string"
-        ar = m.method.split("::")
-        if ar.length is 2
-            [ s, meth ] = ar
+        # does she exist?
+        exists = no
+        
+        if origin is "*"    
+            # we must check all other origins, sadly.
+            for k of @table when _.has(table, k) and k isnt '*'
+                if _.isObject table[k][scope]
+                    break if exists = hasWin @table[k][scope]
+        
         else
-            meth = m.method
-    
-    i = m.id if m.id
-    
-    # w is message source root
-    # o is message origin
-    # m is parsed message
-    # s is message scope
-    # i is message id (or undefined)
-    # meth is unscoped method name
-    # ^^ based on these factors we can route the message
-    
-    # if it has a method it's either a notification or a request,
-    # route using s_boundChans
-    switch
-        when _.isString meth
-            delivered = no
-            if s_boundChans[o] and s_boundChans[o][s]
-                for j in [0...s_boundChans[o][s]] when s_boundChans[o][s][j].win is w
-                    s_boundChans[o][s][j].handler(o, meth, m)
-                    delivered = yes
-                    break
+            # we must check only '*'
+            if @table["*"] and @table["*"][scope]
+                exists = hasWin @table["*"][scope]
 
-            if not delivered and s_boundChans["*"] and s_boundChans["*"][s]
-                for j in s_boundChans["*"][s] when j.win is w
-                    j.handler o, meth, m
-                    break
-    
-        # otherwise it must have an id (or be poorly formed
-        when i
-            s_transIds[i](o, meth, m) if s_transIds[i]
+            if not exists and @table[origin] and @table[origin][scope]
+                exists = hasWin @table[origin][scope]
+
+        throw "A channel is already bound to the same window which overlaps with origin '#{origin}' and has scope '#{scope}'" if exists
+        
+        @table[origin] = {} unless _.isObject @table[origin]
+        @table[origin][scope] = [] unless _.isObject @table[origin][scope]
+        @table[origin][scope].push { win, handler }
+
+    remove: (win, origin, scope) ->
+        @table[origin][scope] = ( x for x in @table[origin][scope] when x.win is win )
+        delete @table[origin][scope] unless @table[origin][scope].length
+
+    # class singleton onMessage handler
+    # this function is registered once and all incoming messages route through here.    This
+    # arrangement allows certain efficiencies, message data is only parsed once and dispatch
+    # is more efficient, especially for large numbers of simultaneous channels.
+    onMessage: (e) =>
+        try
+            m = JSON.parse(e.data)
+            throw "malformed" if m is null or not _.isObject(m)
+        catch e
+            # just ignore any posted messages that do not consist of valid JSON
+            return
+        
+        w = e.source
+        o = e.origin
+        s = undefined
+        i = undefined
+        meth = undefined
+
+        if typeof m.method is "string"
+            ar = m.method.split("::")
+            if ar.length is 2
+                [ s, meth ] = ar
+            else
+                meth = m.method
+        
+        i = m.id if m.id
+        
+        # w is message source root
+        # o is message origin
+        # m is parsed message
+        # s is message scope
+        # i is message id (or undefined)
+        # meth is unscoped method name
+        # ^^ based on these factors we can route the message
+        
+        # if it has a method it's either a notification or a request,
+        # route using table
+        switch
+            when _.isString meth
+                delivered = no
+                if @table[o] and @table[o][s]
+                    for j in [0...@table[o][s]] when @table[o][s][j].win is w
+                        @table[o][s][j].handler(o, meth, m)
+                        delivered = yes
+                        break
+
+                if not delivered and @table["*"] and @table["*"][s]
+                    for j in @table["*"][s] when j.win is w
+                        j.handler o, meth, m
+                        break
+        
+            # otherwise it must have an id (or be poorly formed
+            when i
+                router.transactions[i](o, meth, m) if router.transactions[i]
 
 
-# Setup postMessage event listeners
-switch
-    when 'addEventListener' of window
-        window.addEventListener('message', s_onMessage, no)
-    
-    when 'attachEvent' of window
-        window.attachEvent('onmessage', s_onMessage)
-
-class Samskipti
+# One channel.
+class Channel
 
     # Are we ready yet? when false we will block outbound messages.
     ready: no
@@ -144,7 +135,7 @@ class Samskipti
 
         # private variables 
         # generate a random and pseudo unique id for this channel
-        @chanId = chanId++
+        @channelId = channelId++
         
         # registrations: mapping method names to call objects
         @regTbl = {}            
@@ -159,7 +150,7 @@ class Samskipti
         
         # now register our bound channel for msg routing
         msg = @scope or ''
-        s_addBoundChan @window, @origin, msg, @onMessage
+        router.add @window, @origin, msg, @onMessage
 
         @bind "__ready", @onReady
 
@@ -182,7 +173,7 @@ class Samskipti
                     no
             )
             # We clearly shall...
-            console.log "[#{@chanId}]", args
+            console.log "[#{@channelId}]", args
 
     setTransactionTimeout: (transId, timeout, method) ->
         window.setTimeout ( ->
@@ -191,7 +182,7 @@ class Samskipti
                 msg = "timeout (#{timeout}ms) exceeded on method '#{method}'"
                 @outTbl[transId].error "timeout_error", msg
                 delete @outTbl[transId]
-                delete s_transIds[transId]
+                delete router.transactions[transId]
         ), timeout
 
     onMessage: (origin, method, m) =>
@@ -282,7 +273,7 @@ class Samskipti
                         @outTbl[id].success result or null
                     
                     delete @outTbl[id]
-                    delete s_transIds[id]
+                    delete router.transactions[id]
             
             when method
                 # tis a notification.
@@ -309,7 +300,7 @@ class Samskipti
         @log "ready msg received"
         throw "received ready message while in ready state" if @ready
         
-        @chanId += if type is "ping" then "-R" else "-L"
+        @channelId += if type is "ping" then "-R" else "-L"
         
         @unbind "__ready" # now this handler isn't needed any more.
         @ready = yes
@@ -366,7 +357,7 @@ class Samskipti
         
         # build a 'request' message and send it
         msg = {
-            'id': s_curTranId
+            'id': currentTransactionId
             'method': @scopeMethod(m.method)
             'params': m.params
         }
@@ -376,16 +367,16 @@ class Samskipti
         # XXX: This function returns a timeout ID, but we don't do anything with it.
         # We might want to keep track of it so we can cancel it using clearTimeout()
         # when the transaction completes.
-        setTransactionTimeout(s_curTranId, m.timeout, @scopeMethod(m.method)) if m.timeout
+        setTransactionTimeout(currentTransactionId, m.timeout, @scopeMethod(m.method)) if m.timeout
         
         # insert into the transaction table
         { error, success } = m
-        @outTbl[s_curTranId] = { callbacks, error, success }
+        @outTbl[currentTransactionId] = { callbacks, error, success }
 
-        s_transIds[s_curTranId] = @onMessage
+        router.transactions[currentTransactionId] = @onMessage
         
         # increment current id
-        s_curTranId++
+        currentTransactionId++
         @postMessage msg
 
     notify: (m) ->
@@ -401,7 +392,7 @@ class Samskipti
 
     destroy: ->
         scope = if _.isString(@scope) then @scope else ''
-        s_removeBoundChan @window, @origin, scope
+        router.remove @window, @origin, scope
 
         switch
             when 'removeEventListener' of window
@@ -418,8 +409,10 @@ class Samskipti
         @pendingQueue = []
         
         @log "channel destroyed"
-        @chanId = ""
+        @channelId = ""
 
+
+# One transaction.
 class Transaction
 
     completed: no
@@ -462,4 +455,16 @@ class Transaction
         # send complete
         @channel.postMessage { @id, result }
 
-module.exports = Samskipti
+# All use one router.
+router = new Router()
+
+# Attach postMessage listeners.
+switch
+    when 'addEventListener' of window
+        window.addEventListener 'message', router.onMessage, no
+    
+    when 'attachEvent' of window
+        window.attachEvent 'onmessage', router.onMessage
+
+# Export the channel.
+module.exports = Channel
