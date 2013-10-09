@@ -6963,12 +6963,14 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/src/channel.js", function(exports, require, module){
-var ChanID, Channel, TransID, nextTick, router, _, _ref,
+var ChanID, Channel, TransID, iFrame, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
 
 nextTick = require('next-tick');
+
+iFrame = require('./iframe');
 
 _ref = require('./router'), TransID = _ref.TransID, ChanID = _ref.ChanID, router = _ref.router;
 
@@ -6988,10 +6990,15 @@ Channel = (function() {
       v = opts[k];
       this[k] = v;
     }
+    this.id = new ChanID().id;
+    if (!this.window) {
+      this.window = (this.iframe = new iFrame({
+        id: this.id
+      })).el;
+    }
     if (window === this.window) {
       throw 'Samskipti target window is same as present window';
     }
-    this.id = new ChanID().id;
     this.handlers = {};
     this.outgoing = {};
     this.pending = [];
@@ -7351,6 +7358,81 @@ module.exports = {
   router: router
 };
 
+});
+require.register("samskipti/src/iframe.js", function(exports, require, module){
+var iFrame, tml;
+
+tml = require('./template');
+
+iFrame = (function() {
+  function iFrame(opts) {
+    var iframe;
+    this.name = 'samskipti_frame_' + opts.id;
+    iframe = document.createElement('iframe');
+    iframe.name = this.name;
+    document.querySelector('body').appendChild(iframe);
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(tml());
+    iframe.contentWindow.document.close();
+    iframe.style.border = 0;
+    this.el = window.frames[this.name];
+  }
+
+  return iFrame;
+
+})();
+
+module.exports = iFrame;
+
+});
+require.register("samskipti/src/template.js", function(exports, require, module){
+module.exports = function(__obj) {
+  if (!__obj) __obj = {};
+  var __out = [], __capture = function(callback) {
+    var out = __out, result;
+    __out = [];
+    callback.call(this);
+    result = __out.join('');
+    __out = out;
+    return __safe(result);
+  }, __sanitize = function(value) {
+    if (value && value.ecoSafe) {
+      return value;
+    } else if (typeof value !== 'undefined' && value != null) {
+      return __escape(value);
+    } else {
+      return '';
+    }
+  }, __safe, __objSafe = __obj.safe, __escape = __obj.escape;
+  __safe = __obj.safe = function(value) {
+    if (value && value.ecoSafe) {
+      return value;
+    } else {
+      if (!(typeof value !== 'undefined' && value != null)) value = '';
+      var result = new String(value);
+      result.ecoSafe = true;
+      return result;
+    }
+  };
+  if (!__escape) {
+    __escape = __obj.escape = function(value) {
+      return ('' + value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    };
+  }
+  (function() {
+    (function() {
+      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var chanAppsA = new Sam({\n        \'window\': window.parent,\n        \'scope\': \'appsA\',\n        \'debug\': true\n    });\n    \n    chanAppsA.on(\'load\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
+    
+    }).call(this);
+    
+  }).call(__obj);
+  __obj.safe = __objSafe, __obj.escape = __escape;
+  return __out.join('');
+}
 });
 
 

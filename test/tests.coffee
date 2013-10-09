@@ -1,12 +1,11 @@
 Sam = require 'samskipti'
 
-suite 'Samskitpit', ->
-    test 'should get response to a message from parent', (done) ->
-        chanAppsA = new Sam
-            'window': document.getElementById('child').contentWindow
-            'scope': 'appsA'
-            'debug': yes
+suite 'Samskipti', ->
+    chanAppsA = new Sam
+        'scope': 'appsA'
+        'debug': yes
 
+    test 'should get response to a message from parent', (done) ->
         chanAppsA.trigger
             'method': 'load'
             'params':

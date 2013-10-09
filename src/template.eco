@@ -1,0 +1,16 @@
+<script src="assets/build.js"></script>
+<script>
+(function() {
+    var Sam = require('samskipti');
+    
+    var chanAppsA = new Sam({
+        'window': window.parent,
+        'scope': 'appsA',
+        'debug': true
+    });
+    
+    chanAppsA.on('load', function(obj) {
+        return obj.text.split('').reverse().join('');
+    });
+})();
+</script>

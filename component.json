@@ -8,6 +8,8 @@
     },
     "scripts": [
         "src/channel.coffee",
-        "src/router.coffee"
+        "src/router.coffee",
+        "src/iframe.coffee",
+        "src/template.eco"
     ]
 }

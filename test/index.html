@@ -7,18 +7,16 @@
 
     <title>Mocha Tests</title>
 
-    <link rel="stylesheet" href="mocha.css" />
-    <style>iframe { border: 0; }</style>
+    <link rel="stylesheet" href="assets/mocha.css" />
 
-    <script src="mocha.js"></script>
-    <script src="assert.js"></script>
-    <script src="coffeescript.js"></script>
-    <script src="build.js"></script>
+    <script src="assets/mocha.js"></script>
+    <script src="assets/assert.js"></script>
+    <script src="assets/coffeescript.js"></script>
+    <script src="assets/build.js"></script>
 </head>
 <body>
     <div id="mocha"></div>
     <script>mocha.setup('tdd');</script>
     <script type="text/coffeescript" src="tests.coffee"></script>
-    <iframe id="child" src="iframe.html"></iframe>
 </body>
 </html>

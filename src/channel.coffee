@@ -1,6 +1,8 @@
 _        = require 'lodash'
 nextTick = require 'next-tick'
 
+iFrame = require './iframe'
+
 # Get the singleton of the router all channels use.
 { TransID, ChanID, router }  = require './router'
 
@@ -21,12 +23,16 @@ class Channel
         # Expand opts on us.
         ( @[k] = v for k, v of opts )
 
-        # Make sure we do not communicate with ourselves.
-        throw 'Samskipti target window is same as present window' if window is @window
-
         # A new channel id.
         { @id } = new ChanID()
         
+        # Do we need to create an iframe?
+        unless @window
+            @window = (@iframe = new iFrame({ @id })).el
+
+        # Make sure we do not communicate with ourselves.
+        throw 'Samskipti target window is same as present window' if window is @window
+
         # Method names to message handlers.
         @handlers = {}
         
