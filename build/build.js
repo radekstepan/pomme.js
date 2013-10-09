@@ -6963,14 +6963,14 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/src/channel.js", function(exports, require, module){
-var Channel, channelId, nextTick, router, transaction, _, _ref,
+var ChanID, Channel, TransID, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
 
 nextTick = require('next-tick');
 
-_ref = require('./router'), transaction = _ref.transaction, channelId = _ref.channelId, router = _ref.router;
+_ref = require('./router'), TransID = _ref.TransID, ChanID = _ref.ChanID, router = _ref.router;
 
 Channel = (function() {
   Channel.prototype.ready = false;
@@ -6991,7 +6991,7 @@ Channel = (function() {
     if (window === this.window) {
       throw 'Samskipti target window is same as present window';
     }
-    this.channelId = channelId++;
+    this.id = new ChanID().id;
     this.handlers = {};
     this.outgoing = {};
     this.pending = [];
@@ -7086,7 +7086,7 @@ Channel = (function() {
     if (this.ready) {
       throw 'received ready message while in ready state';
     }
-    this.channelId += type === 'ping' ? ':A' : ':B';
+    this.id += type === 'ping' ? ':A' : ':B';
     this.unbind('__ready');
     this.ready = true;
     this.log('ready msg accepted');
@@ -7133,7 +7133,7 @@ Channel = (function() {
           return false;
         }
       });
-      return console.log("[" + this.channelId + "]", args);
+      return console.log("[" + this.id + "]", args);
     }
   };
 
@@ -7152,7 +7152,7 @@ Channel = (function() {
   };
 
   Channel.prototype.trigger = function(message) {
-    var error, method, params, payload, success;
+    var error, id, method, params, payload, success;
     if (!message) {
       throw 'missing arguments to trigger function';
     }
@@ -7173,18 +7173,18 @@ Channel = (function() {
     if (!_.isFunction(message.error)) {
       throw '`error` callback missing from trigger';
     }
+    id = new TransID().id;
     payload = {
-      'id': transaction,
+      id: id,
       method: method,
       params: params
     };
     error = message.error, success = message.success;
-    this.outgoing[transaction] = {
+    this.outgoing[id] = {
       error: error,
       success: success
     };
-    router.transactions[transaction] = this.onMessage;
-    transaction++;
+    router.transactions[id] = this.onMessage;
     return this.postMessage(payload);
   };
 
@@ -7200,14 +7200,14 @@ module.exports = Channel;
 
 });
 require.register("samskipti/src/router.js", function(exports, require, module){
-var Router, channelId, router, transaction, _,
+var ChanID, Router, TransID, router, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
 
 Router = (function() {
   function Router() {
-    this.onMessage = __bind(this.onMessage, this);
+    this.route = __bind(this.route, this);
   }
 
   Router.prototype.table = {};
@@ -7215,47 +7215,42 @@ Router = (function() {
   Router.prototype.transactions = {};
 
   Router.prototype.register = function(win, origin, scope, handler) {
-    var exists, hasWin, k;
+    var exists, key, value, _base, _base1, _ref, _ref1, _ref2;
     if (scope == null) {
       scope = '';
     }
-    hasWin = function(arr) {
-      var x, _i, _len;
-      for (_i = 0, _len = arr.length; _i < _len; _i++) {
-        x = arr[_i];
-        if (x.win === win) {
-          return true;
-        }
-      }
-      return false;
-    };
     exists = false;
-    if (origin === "*") {
-      for (k in this.table) {
-        if (_.has(this.table, k) && k !== '*') {
-          if (_.isObject(this.table[k][scope])) {
-            if (exists = hasWin(this.table[k][scope])) {
-              break;
-            }
+    if (origin === '*') {
+      _ref = this.table;
+      for (key in _ref) {
+        value = _ref[key];
+        if (_.has(this.table, key) && key !== '*') {
+          if (_.find(value[scope], {
+            win: win
+          })) {
+            break;
           }
         }
       }
     } else {
-      if (this.table["*"] && this.table["*"][scope]) {
-        exists = hasWin(this.table["*"][scope]);
-      }
-      if (!exists && this.table[origin] && this.table[origin][scope]) {
-        exists = hasWin(this.table[origin][scope]);
+      if (!(exists = (((_ref1 = this.table['*']) != null ? _ref1[scope] : void 0) != null) && hasWin(_.find(this.table['*'][scope], {
+        win: win
+      })))) {
+        if (((_ref2 = this.table[origin]) != null ? _ref2[scope] : void 0) != null) {
+          exists = _.find(this.table[origin][scope], {
+            win: win
+          });
+        }
       }
     }
     if (exists) {
-      throw "A channel is already bound to the same window which overlaps with origin '" + origin + "' and has scope '" + scope + "'";
+      throw "A channel is already bound to the same window which overlaps with origin `" + origin + "` and has scope `" + scope + "`";
     }
-    if (!_.isObject(this.table[origin])) {
-      this.table[origin] = {};
+    if ((_base = this.table)[origin] == null) {
+      _base[origin] = {};
     }
-    if (!_.isObject(this.table[origin][scope])) {
-      this.table[origin][scope] = [];
+    if ((_base1 = this.table[origin])[scope] == null) {
+      _base1[scope] = [];
     }
     return this.table[origin][scope].push({
       win: win,
@@ -7264,82 +7259,49 @@ Router = (function() {
   };
 
   Router.prototype.remove = function(win, origin, scope) {
-    var x;
-    this.table[origin][scope] = (function() {
-      var _i, _len, _ref, _results;
-      _ref = this.table[origin][scope];
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        x = _ref[_i];
-        if (x.win === win) {
-          _results.push(x);
-        }
-      }
-      return _results;
-    }).call(this);
+    this.table[origin][scope] = _.find(this.table[origin][scope], {
+      win: win
+    });
     if (!this.table[origin][scope].length) {
       return delete this.table[origin][scope];
     }
   };
 
-  Router.prototype.onMessage = function(e) {
-    var ar, delivered, i, j, m, meth, o, s, w, _i, _j, _len, _ref, _ref1, _results;
+  Router.prototype.route = function(e) {
+    var m, method, origin, route, scope, _base, _i, _len, _name, _ref, _ref1, _ref2;
     try {
       m = JSON.parse(e.data);
-      if (m === null || !_.isObject(m)) {
-        throw "malformed";
+      if (!_.isObject(m)) {
+        throw 'malformed';
       }
     } catch (_error) {
       e = _error;
       return;
     }
-    w = e.source;
-    o = e.origin;
-    s = void 0;
-    i = void 0;
-    meth = void 0;
-    if (typeof m.method === "string") {
-      ar = m.method.split("::");
-      if (ar.length === 2) {
-        s = ar[0], meth = ar[1];
-      } else {
-        meth = m.method;
+    scope = null;
+    method = null;
+    if (_.isString(m.method)) {
+      _ref = m.method.split('::'), scope = _ref[0], method = _ref[1];
+      if (!(scope && method)) {
+        method = m.method;
       }
     }
-    if (m.id) {
-      i = m.id;
-    }
     switch (false) {
-      case !_.isString(meth):
-        delivered = false;
-        if (this.table[o] && this.table[o][s]) {
-          for (j = _i = 0, _ref = this.table[o][s]; 0 <= _ref ? _i < _ref : _i > _ref; j = 0 <= _ref ? ++_i : --_i) {
-            if (!(this.table[o][s][j].win === w)) {
-              continue;
+      case !_.isString(method):
+        _ref1 = [e.origin, '*'];
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          origin = _ref1[_i];
+          if (((_ref2 = this.table[origin]) != null ? _ref2[scope] : void 0) != null) {
+            if (route = _.find(this.table[origin][scope], {
+              'win': e.source
+            })) {
+              return route.handler(origin, method, m);
             }
-            this.table[o][s][j].handler(o, meth, m);
-            delivered = true;
-            break;
           }
-        }
-        if (!delivered && this.table["*"] && this.table["*"][s]) {
-          _ref1 = this.table["*"][s];
-          _results = [];
-          for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
-            j = _ref1[_j];
-            if (!(j.win === w)) {
-              continue;
-            }
-            j.handler(o, meth, m);
-            break;
-          }
-          return _results;
         }
         break;
-      case !i:
-        if (router.transactions[i]) {
-          return router.transactions[i](o, meth, m);
-        }
+      case !m.id:
+        return typeof (_base = router.transactions)[_name = m.id] === "function" ? _base[_name](e.origin, method, m) : void 0;
     }
   };
 
@@ -7347,27 +7309,45 @@ Router = (function() {
 
 })();
 
+TransID = (function() {
+  TransID.prototype._id = 1;
+
+  function TransID() {
+    this.id = TransID.prototype._id++;
+  }
+
+  return TransID;
+
+})();
+
+ChanID = (function() {
+  ChanID.prototype._id = 0;
+
+  function ChanID() {
+    this.id = ChanID.prototype._id++;
+  }
+
+  return ChanID;
+
+})();
+
 if (!('postMessage' in window)) {
   throw 'Samskipti cannot run in this browser, no postMessage';
 }
-
-transaction = 1;
-
-channelId = 0;
 
 router = new Router();
 
 switch (false) {
   case !('addEventListener' in window):
-    window.addEventListener('message', router.onMessage, false);
+    window.addEventListener('message', router.route, false);
     break;
   case !('attachEvent' in window):
-    window.attachEvent('onmessage', router.onMessage);
+    window.attachEvent('onmessage', router.route);
 }
 
 module.exports = {
-  transaction: transaction,
-  channelId: channelId,
+  TransID: TransID,
+  ChanID: ChanID,
   router: router
 };
 

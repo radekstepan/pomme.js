@@ -2,7 +2,7 @@ _        = require 'lodash'
 nextTick = require 'next-tick'
 
 # Get the singleton of the router all channels use.
-{ transaction, channelId, router }  = require './router'
+{ TransID, ChanID, router }  = require './router'
 
 class Channel
 
@@ -25,7 +25,7 @@ class Channel
         throw 'Samskipti target window is same as present window' if window is @window
 
         # A new channel id.
-        @channelId = channelId++
+        { @id } = new ChanID()
         
         # Method names to message handlers.
         @handlers = {}
@@ -122,7 +122,7 @@ class Channel
         throw 'received ready message while in ready state' if @ready
         
         # Set who is parent/child.
-        @channelId += if type is 'ping' then ':A' else ':B'
+        @id += if type is 'ping' then ':A' else ':B'
         
         # No longer need to be called.
         @unbind '__ready'
@@ -168,7 +168,7 @@ class Channel
                     no # keep quiet
             )
             # We clearly shall...
-            console.log "[#{@channelId}]", args
+            console.log "[#{@id}]", args
 
     # Register a method handler. One window saying what to do on receiving msg.
     on: (method, cb) ->
@@ -198,18 +198,18 @@ class Channel
         throw '`success` callback missing from trigger' unless _.isFunction message.success
         throw '`error` callback missing from trigger' unless _.isFunction message.error
 
+        # Get a new transaction id.
+        { id } = new TransID()
+
         # Build a 'request' message and send it.
-        payload = { 'id': transaction, method, params }
+        payload = { id, method, params }
         
         # Get the error and success callbacks.
         { error, success } = message
 
         # Insert message into outgoing bin.
-        @outgoing[transaction] = { error, success }
-        router.transactions[transaction] = @onMessage
-        
-        # Ready for the next transaction.
-        transaction++
+        @outgoing[id] = { error, success }
+        router.transactions[id] = @onMessage
 
         # Post it.
         @postMessage payload
