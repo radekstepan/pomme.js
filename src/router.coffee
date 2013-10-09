@@ -79,7 +79,6 @@ class ChanID
 # Browser capabilities check
 throw ('Samskipti cannot run in this browser, no postMessage') unless 'postMessage' of window
 
-
 # Everybody use this one.
 router = new Router()
 

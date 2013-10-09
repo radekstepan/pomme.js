@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+    <title>Mocha Tests</title>
+
+    <link rel="stylesheet" href="mocha.css" />
+    <style>iframe { border: 0; }</style>
+
+    <script src="mocha.js"></script>
+    <script src="assert.js"></script>
+    <script src="coffeescript.js"></script>
+    <script src="build.js"></script>
+</head>
+<body>
+    <div id="mocha"></div>
+    <script>mocha.setup('tdd');</script>
+    <script type="text/coffeescript" src="tests.coffee"></script>
+    <iframe id="child" src="iframe.html"></iframe>
+</body>
+</html>
