@@ -2,6 +2,7 @@ Sam = require 'samskipti'
 
 suite 'Samskipti', ->
     chanAppsA = new Sam
+        'target': 'body'
         'scope': 'appsA'
         'debug': yes
 

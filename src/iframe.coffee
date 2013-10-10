@@ -3,12 +3,12 @@ tml = require './template'
 class iFrame
 
     constructor: (opts) ->
-        @name = 'samskipti_frame_' + opts.id
+        @name = '__samskipti::' + opts.id
 
         # Create the iframe.
         iframe = document.createElement 'iframe'
         iframe.name = @name
-        document.querySelector('body').appendChild iframe
+        document.querySelector(opts.target).appendChild iframe
 
         # Write custom content.
         iframe.contentWindow.document.open()

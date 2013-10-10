@@ -26,9 +26,8 @@ class Channel
         # A new channel id.
         { @id } = new ChanID()
         
-        # Do we need to create an iframe?
-        unless @window
-            @window = (@iframe = new iFrame({ @id })).el
+        # Parent or child.
+        @window = if @target then (@iframe = new iFrame({ @id, @target })).el else window.parent
 
         # Make sure we do not communicate with ourselves.
         throw 'Samskipti target window is same as present window' if window is @window

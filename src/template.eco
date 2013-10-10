@@ -4,7 +4,6 @@
     var Sam = require('samskipti');
     
     var chanAppsA = new Sam({
-        'window': window.parent,
         'scope': 'appsA',
         'debug': true
     });

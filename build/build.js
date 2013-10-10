@@ -6991,11 +6991,10 @@ Channel = (function() {
       this[k] = v;
     }
     this.id = new ChanID().id;
-    if (!this.window) {
-      this.window = (this.iframe = new iFrame({
-        id: this.id
-      })).el;
-    }
+    this.window = this.target ? (this.iframe = new iFrame({
+      id: this.id,
+      target: this.target
+    })).el : window.parent;
     if (window === this.window) {
       throw 'Samskipti target window is same as present window';
     }
@@ -7367,10 +7366,10 @@ tml = require('./template');
 iFrame = (function() {
   function iFrame(opts) {
     var iframe;
-    this.name = 'samskipti_frame_' + opts.id;
+    this.name = '__samskipti::' + opts.id;
     iframe = document.createElement('iframe');
     iframe.name = this.name;
-    document.querySelector('body').appendChild(iframe);
+    document.querySelector(opts.target).appendChild(iframe);
     iframe.contentWindow.document.open();
     iframe.contentWindow.document.write(tml());
     iframe.contentWindow.document.close();
@@ -7425,7 +7424,7 @@ module.exports = function(__obj) {
   }
   (function() {
     (function() {
-      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var chanAppsA = new Sam({\n        \'window\': window.parent,\n        \'scope\': \'appsA\',\n        \'debug\': true\n    });\n    \n    chanAppsA.on(\'load\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
+      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var chanAppsA = new Sam({\n        \'scope\': \'appsA\',\n        \'debug\': true\n    });\n    \n    chanAppsA.on(\'load\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
     
     }).call(this);
     
