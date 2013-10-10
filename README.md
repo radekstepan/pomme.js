@@ -13,11 +13,11 @@ You can see an example in `/test/tests.coffee`.
 
 ###Config
 
-###scope (parent & child)
+####scope (parent & child)
 
 Scope is an identifier used by a router to work out how to route messages. It is not strictly required as when you only have 1 parent-child pair, there isn't much guesswork involved...
 
-###target (parent)
+####target (parent)
 
 This will be the place where your iframe will be rendered.
 
@@ -26,11 +26,9 @@ This will be the place where your iframe will be rendered.
 The value here is a function being passed abovementioned `scope`. This function should return an HTML string (not CoffeeScript) that will be injected into the child iframe. It needs to setup the comms from the other end.
 
 ```javascript
-var Sam = require('samskipti');
+var Sam = require('samskipti'); // wherever this is served from
 var channel = new Sam();
-channel.on('method', function(args) {
-    return args.text.toLowerCase();
-});
+// ...
 ```
 
 ###Methods
