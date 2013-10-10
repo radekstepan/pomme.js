@@ -36,10 +36,15 @@ var channel = new Sam();
 As a parent, you invoke functions on the child like so:
 
 ```coffeescript
+# Assuming this channel is scoped with the parent.
 channel.trigger
+    # The method to reach on the other end.
     'method': 'reverse'
+    # A object/string/array to be serialized and channeled.
     'params': { 'text': 'ABC' }
+    # Success callback.
     success: (response) ->
+    # Error callback.
     error: (err, message) ->
 ```
 
