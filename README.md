@@ -23,7 +23,7 @@ Scope is an identifier used by a router to work out how to route messages. It is
 
 The value here is a function being passed abovementioned `scope`. This function should return an HTML string that will be injected into the child iframe. At the minimum it this needs to require the app and listen to messages:
 
-```coffeescript
+```javascript
 // ...
 channel.on('method', function(args) {
     return args.text.toLowerCase();
