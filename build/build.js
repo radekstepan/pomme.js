@@ -6981,12 +6981,15 @@ Channel = (function() {
 
   Channel.prototype.scope = 'testScope';
 
-  function Channel(_arg) {
-    var scope, target, template,
-      _this = this;
-    target = _arg.target, scope = _arg.scope, template = _arg.template;
+  function Channel(opts) {
     this.onReady = __bind(this.onReady, this);
     this.onMessage = __bind(this.onMessage, this);
+    var scope, target, template,
+      _this = this;
+    if (opts == null) {
+      opts = {};
+    }
+    target = opts.target, scope = opts.scope, template = opts.template;
     this.id = new ChanID().id;
     if (scope) {
       this.scope = scope;
@@ -7431,11 +7434,11 @@ module.exports = function(__obj) {
   }
   (function() {
     (function() {
-      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var chanAppsA = new Sam({\n        \'scope\': \'');
+      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var channel = new Sam({\n        \'scope\': \'');
     
       __out.push(__sanitize(this.scope));
     
-      __out.push('\'\n    });\n    \n    chanAppsA.on(\'reverse\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
+      __out.push('\'\n    });\n    \n    channel.on(\'reverse\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
     
     }).call(this);
     

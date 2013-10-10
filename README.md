@@ -9,25 +9,47 @@ $ make [build|watch|serve]
 
 ##Use it
 
-You can see an example in `/test/tests.coffee`. The following are the config options passed to the app.
+You can see an example in `/test/tests.coffee`.
 
-###target
+###Config
 
-This will be the place where your iframe will be rendered.
-
-###scope
+###scope (parent & child)
 
 Scope is an identifier used by a router to work out how to route messages. It is not strictly required as when you only have 1 parent-child pair, there isn't much guesswork involved...
 
-###template
+###target (parent)
 
-The value here is a function being passed abovementioned `scope`. This function should return an HTML string that will be injected into the child iframe. At the minimum it this needs to require the app and listen to messages:
+This will be the place where your iframe will be rendered.
+
+####template (parent)
+
+The value here is a function being passed abovementioned `scope`. This function should return an HTML string (not CoffeeScript) that will be injected into the child iframe. It needs to setup the comms from the other end.
 
 ```javascript
-// ...
+var Sam = require('samskipti');
+var channel = new Sam();
 channel.on('method', function(args) {
     return args.text.toLowerCase();
 });
+```
+
+###Methods
+
+As a parent, you invoke functions on the child like so:
+
+```coffeescript
+channel.trigger
+    'method': 'reverse'
+    'params': { 'text': 'ABC' }
+    success: (response) ->
+    error: (err, message) ->
+```
+
+As a child you listen on a channel for invokations:
+
+```coffeescript
+channel.on 'reverse', ({ text }) ->
+    text.split('').reverse().join('')
 ```
 
 ##Test it

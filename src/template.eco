@@ -3,11 +3,11 @@
 (function() {
     var Sam = require('samskipti');
     
-    var chanAppsA = new Sam({
+    var channel = new Sam({
         'scope': '<%= @scope %>'
     });
     
-    chanAppsA.on('reverse', function(obj) {
+    channel.on('reverse', function(obj) {
         return obj.text.split('').reverse().join('');
     });
 })();

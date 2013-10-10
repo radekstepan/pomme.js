@@ -25,9 +25,7 @@ suite 'Samskipti', ->
                 (function() {
                     var Sam = require('samskipti');
                     
-                    var channel = new Sam({
-                        'scope': '#{scope}'
-                    });
+                    var channel = new Sam();
                     
                     channel.on('lowercase', function(obj) {
                         return obj.text.toLowerCase();

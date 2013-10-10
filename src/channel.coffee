@@ -19,7 +19,12 @@ class Channel
     scope: 'testScope'
 
     # Create a new channel.
-    constructor: ({ target, scope, template }) ->
+    constructor: (opts) ->
+        opts ?= {}
+
+        # Explode.
+        { target, scope, template } = opts
+
         # A new channel id.
         { @id } = new ChanID()
         
