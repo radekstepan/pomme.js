@@ -1,21 +1,24 @@
-tml = require './template'
-
 class iFrame
 
-    constructor: (opts) ->
-        @name = '__samskipti::' + opts.id
+    constructor: ({ id, target, scope, template }) ->
+        @name = '__samskipti::' + id or + new Date
 
         # Create the iframe.
         iframe = document.createElement 'iframe'
         iframe.name = @name
-        document.querySelector(opts.target).appendChild iframe
+        document.querySelector(target).appendChild iframe
+
+        # Use a custom template or go spec one?
+        template ?= require './template'
+        # Pass it scope.
+        html = template { scope }
 
         # Write custom content.
-        iframe.contentWindow.document.open()
-        iframe.contentWindow.document.write(do tml)
-        iframe.contentWindow.document.close()
+        do iframe.contentWindow.document.open
+        iframe.contentWindow.document.write html
+        do iframe.contentWindow.document.close
 
-        # Hide it.
+        # Hide the border by default.
         iframe.style.border = 0
 
         # Refer to the iframe's document.

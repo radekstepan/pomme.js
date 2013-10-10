@@ -6981,19 +6981,21 @@ Channel = (function() {
 
   Channel.prototype.scope = 'testScope';
 
-  function Channel(opts) {
+  function Channel(_arg) {
+    var scope, target, template,
+      _this = this;
+    target = _arg.target, scope = _arg.scope, template = _arg.template;
     this.onReady = __bind(this.onReady, this);
     this.onMessage = __bind(this.onMessage, this);
-    var k, v,
-      _this = this;
-    for (k in opts) {
-      v = opts[k];
-      this[k] = v;
-    }
     this.id = new ChanID().id;
-    this.window = this.target ? (this.iframe = new iFrame({
+    if (scope) {
+      this.scope = scope;
+    }
+    this.window = target ? (this.iframe = new iFrame({
       id: this.id,
-      target: this.target
+      target: target,
+      scope: this.scope,
+      template: template
     })).el : window.parent;
     if (window === this.window) {
       throw 'Samskipti target window is same as present window';
@@ -7359,19 +7361,24 @@ module.exports = {
 
 });
 require.register("samskipti/src/iframe.js", function(exports, require, module){
-var iFrame, tml;
-
-tml = require('./template');
+var iFrame;
 
 iFrame = (function() {
-  function iFrame(opts) {
-    var iframe;
-    this.name = '__samskipti::' + opts.id;
+  function iFrame(_arg) {
+    var html, id, iframe, scope, target, template;
+    id = _arg.id, target = _arg.target, scope = _arg.scope, template = _arg.template;
+    this.name = '__samskipti::' + id || +(new Date);
     iframe = document.createElement('iframe');
     iframe.name = this.name;
-    document.querySelector(opts.target).appendChild(iframe);
+    document.querySelector(target).appendChild(iframe);
+    if (template == null) {
+      template = require('./template');
+    }
+    html = template({
+      scope: scope
+    });
     iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(tml());
+    iframe.contentWindow.document.write(html);
     iframe.contentWindow.document.close();
     iframe.style.border = 0;
     this.el = window.frames[this.name];
@@ -7424,7 +7431,11 @@ module.exports = function(__obj) {
   }
   (function() {
     (function() {
-      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var chanAppsA = new Sam({\n        \'scope\': \'appsA\',\n        \'debug\': true\n    });\n    \n    chanAppsA.on(\'load\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
+      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var chanAppsA = new Sam({\n        \'scope\': \'');
+    
+      __out.push(__sanitize(this.scope));
+    
+      __out.push('\'\n    });\n    \n    chanAppsA.on(\'reverse\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
     
     }).call(this);
     

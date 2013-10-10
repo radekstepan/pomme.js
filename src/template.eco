@@ -4,11 +4,10 @@
     var Sam = require('samskipti');
     
     var chanAppsA = new Sam({
-        'scope': 'appsA',
-        'debug': true
+        'scope': '<%= @scope %>'
     });
     
-    chanAppsA.on('load', function(obj) {
+    chanAppsA.on('reverse', function(obj) {
         return obj.text.split('').reverse().join('');
     });
 })();

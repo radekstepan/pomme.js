@@ -1,18 +1,47 @@
 Sam = require 'samskipti'
 
 suite 'Samskipti', ->
-    chanAppsA = new Sam
-        'target': 'body'
-        'scope': 'appsA'
-        'debug': yes
 
     test 'should get response to a message from parent', (done) ->
-        chanAppsA.trigger
-            'method': 'load'
+        channel = new Sam
+            'target': 'body'
+
+        channel.trigger
+            'method': 'reverse'
             'params':
                 'text': 'ABC'
             success: (v) ->
                 assert.equal 'CBA', v
+                do done
+            error: (err, message) ->
+                assert.ifError err
+
+    test 'should be able to inject a custom template', (done) ->
+        channel = new Sam
+            'target': 'body'
+            'template': ({ scope }) -> """
+                <script src="assets/build.js"></script>
+                <script>
+                (function() {
+                    var Sam = require('samskipti');
+                    
+                    var channel = new Sam({
+                        'scope': '#{scope}'
+                    });
+                    
+                    channel.on('lowercase', function(obj) {
+                        return obj.text.toLowerCase();
+                    });
+                })();
+                </script>
+            """
+
+        channel.trigger
+            'method': 'lowercase'
+            'params':
+                'text': 'DEF'
+            success: (v) ->
+                assert.equal 'def', v
                 do done
             error: (err, message) ->
                 assert.ifError err

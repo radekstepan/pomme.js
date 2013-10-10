@@ -18,16 +18,16 @@ class Channel
     # Scope is prepended to message names. Windows of a single channel must agree upon scope.
     scope: 'testScope'
 
-    # Create a new channel. Provide `window` and `scope` at the least.
-    constructor: (opts) ->
-        # Expand opts on us.
-        ( @[k] = v for k, v of opts )
-
+    # Create a new channel.
+    constructor: ({ target, scope, template }) ->
         # A new channel id.
         { @id } = new ChanID()
         
+        # Which scope to use?
+        @scope = scope if scope
+
         # Parent or child.
-        @window = if @target then (@iframe = new iFrame({ @id, @target })).el else window.parent
+        @window = if target then (@iframe = new iFrame({ @id, target, @scope, template })).el else window.parent
 
         # Make sure we do not communicate with ourselves.
         throw 'Samskipti target window is same as present window' if window is @window
