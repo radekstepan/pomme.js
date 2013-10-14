@@ -107,4 +107,28 @@ suite 'Samskipti', ->
 
         channel.trigger 'fn', ->
 
+    test 'should be able to pass multiple params', (done) ->
+        channel = new Sam
+            'target': 'body'
+            'template': ({ scope }) -> """
+                <script src="assets/build.js"></script>
+                <script>
+                (function() {
+                    var Sam = require('samskipti');
+                    
+                    var channel = new Sam();
+                    
+                    channel.on('swapper', function(a, b, cb) {
+                        cb(null, b, a);
+                    });
+                })();
+                </script>
+            """
+
+        channel.trigger 'swapper', 'A', 'B', (err, b, a) ->
+            assert.ifError err
+            assert.equal a, 'A'
+            assert.equal b, 'B'
+            do done
+
 do mocha.run

@@ -60,12 +60,12 @@ class Channel
 
         # Say to the other window we are ready. Need to force the message.
         nextTick =>
-            @postMessage { 'method': @scopeMethod(constants.ready), 'params': 'ping' }, yes
+            @postMessage { 'method': @scopeMethod(constants.ready), 'params': [ 'ping' ] }, yes
 
     # Ping the other window.
     onReady: (type) =>
         throw 'received ready message while in ready state' if @ready
-        
+
         # Set who is parent/child.
         @id += if type is 'ping' then ':A' else ':B'
         
@@ -82,7 +82,7 @@ class Channel
         ( @postMessage do @pending.pop while @pending.length )
 
     # Interface to invoke a function on the other end.
-    trigger: (method, opts) ->        
+    trigger: (method, opts...) ->
         # Is this circular?
         try
             JSON.stringify opts
@@ -141,7 +141,7 @@ class Channel
                     # When we get called...
                     =>
                         # Send a message to the other end invoking a callback function.
-                        @trigger obj, _.toArray(arguments)
+                        @trigger.apply @, [ obj ].concat _.toArray(arguments)
                 
                 # Primitive.
                 else obj
@@ -149,8 +149,9 @@ class Channel
 
         # Invoke the handler.
         if handler = @handlers[method]
-            # Arrayize if not from a cb?
-            params = [ params ] unless method.match(constants.function)
+            # Just making sure...
+            params = [ params ] unless _.isArray(params)
+
             # Call.
             try
                 handler.apply null, params

@@ -20,8 +20,10 @@ class iFrame
         iframe.contentWindow.document.write html
         do iframe.contentWindow.document.close
 
-        # Hide the border by default.
+        # Hide it by default.
         iframe.style.border = 0
+        iframe.style.height = 0
+        iframe.style.width = 0
 
         # Refer to the iframe's document.
         @el = window.frames[@name]

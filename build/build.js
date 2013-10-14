@@ -6964,7 +6964,8 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 });
 require.register("samskipti/src/channel.js", function(exports, require, module){
 var ChanID, Channel, FnID, constants, iFrame, nextTick, router, _, _ref,
-  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+  __slice = [].slice;
 
 _ = require('lodash');
 
@@ -7020,7 +7021,7 @@ Channel = (function() {
     nextTick(function() {
       return _this.postMessage({
         'method': _this.scopeMethod(constants.ready),
-        'params': 'ping'
+        'params': ['ping']
       }, true);
     });
   }
@@ -7043,9 +7044,10 @@ Channel = (function() {
     return _results;
   };
 
-  Channel.prototype.trigger = function(method, opts) {
-    var defunc, e, params,
+  Channel.prototype.trigger = function() {
+    var defunc, e, method, opts, params,
       _this = this;
+    method = arguments[0], opts = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
     try {
       JSON.stringify(opts);
     } catch (_error) {
@@ -7101,14 +7103,14 @@ Channel = (function() {
           });
         case !(_.isString(obj) && obj.match(constants["function"])):
           return function() {
-            return _this.trigger(obj, _.toArray(arguments));
+            return _this.trigger.apply(_this, [obj].concat(_.toArray(arguments)));
           };
         default:
           return obj;
       }
     })(params);
     if (handler = this.handlers[method]) {
-      if (!method.match(constants["function"])) {
+      if (!_.isArray(params)) {
         params = [params];
       }
       try {
@@ -7356,6 +7358,8 @@ iFrame = (function() {
     iframe.contentWindow.document.write(html);
     iframe.contentWindow.document.close();
     iframe.style.border = 0;
+    iframe.style.height = 0;
+    iframe.style.width = 0;
     this.el = window.frames[this.name];
   }
 
