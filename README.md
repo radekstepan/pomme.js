@@ -37,23 +37,41 @@ As a parent, you invoke functions on the child like so:
 
 ```coffeescript
 # Assuming this channel is scoped with the parent.
-channel.trigger
-    # The method to reach on the other end.
-    'method': 'reverse'
-    # A object/string/array to be serialized and channeled.
-    'params': { 'text': 'ABC' }
-    # Success callback.
-    success: (response) ->
-    # Error callback.
-    error: (err, message) ->
+channel.trigger 'reverse', 'ABC', (err, result) ->
+    throw err if err
+    console.log result
 ```
 
 As a child you listen on a channel for invokations:
 
 ```coffeescript
-channel.on 'reverse', ({ text }) ->
-    text.split('').reverse().join('')
+channel.on 'reverse', (text, cb) ->
+    try
+        result = text.split('').reverse().join('')
+        cb null, result
+    catch err
+        cb err
 ```
+
+####Errors
+
+On top of that, you can be listening for error that happen on the parent and/or child. So in your parent you would do:
+
+```coffeescript
+channel.on 'error', (err) ->
+    throw err
+
+channel.trigger 'die'
+```
+
+And your child could do this:
+
+```coffeescript
+channel.on 'die', ->
+    throw 'I am dead'
+```
+
+If you do not specify your own error handler, nothing is thrown/logged.
 
 ##Test it
 
