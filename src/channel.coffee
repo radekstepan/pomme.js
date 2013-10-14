@@ -36,8 +36,12 @@ class Channel
         # Which scope to use?
         @scope = scope if scope
 
-        # Parent or child.
-        @window = if target then (@iframe = new iFrame({ @id, target, @scope, template })).el else window.parent
+        # Parent or child?
+        if target
+            @window = (@iframe = new iFrame({ @id, target, @scope, template })).el
+        else
+            @window = window.parent
+            @child = yes
 
         # Make sure we do not communicate with ourselves.
         throw 'Samskipti target window is same as present window' if window is @window
@@ -78,7 +82,13 @@ class Channel
         ( @postMessage do @pending.pop while @pending.length )
 
     # Interface to invoke a function on the other end.
-    trigger: (method, opts) ->
+    trigger: (method, opts) ->        
+        # Is this circular?
+        try
+            JSON.stringify opts
+        catch e
+            return @error(e)
+
         # Serialize the opts creating function callbacks when needed.
         params = (defunc = (obj) =>
             if _.isFunction obj
@@ -131,7 +141,7 @@ class Channel
                     # When we get called...
                     =>
                         # Send a message to the other end invoking a callback function.
-                        @trigger obj, arguments
+                        @trigger obj, _.toArray(arguments)
                 
                 # Primitive.
                 else obj
@@ -139,12 +149,13 @@ class Channel
 
         # Invoke the handler.
         if handler = @handlers[method]
-            # Does it have a function prefix?
-            if method.match(constants.function)
-                # Need to apply params.
-                handler.apply null, _.toArray(params)
-            else
-                handler params
+            # Arrayize if not from a cb?
+            params = [ params ] unless method.match(constants.function)
+            # Call.
+            try
+                handler.apply null, params
+            catch err
+                @error err
 
     # Prefix method name with its scope.
     scopeMethod: (method) ->
@@ -163,5 +174,42 @@ class Channel
     # Unregister a method handler. Primarily used internally.
     unbind: (method) ->
         delete @handlers[method]
+
+    # Throw an error.
+    error: (err) ->
+        message = null
+        
+        # Parse the error.
+        switch
+            when _.isString err
+                message = err
+            
+            when _.isArray err
+                message = err[1]
+
+            when _.isObject(err) and _.isString(err.message)
+                message = err.message
+
+        unless message
+            try
+                message = JSON.stringify err
+            catch
+                message = do err.toString
+
+        # Are we a child?
+        if @child
+            # Do we have an explicitly set listener?
+            if _.isFunction @handlers.error
+                # Trigger it then.
+                @handlers.error message
+            else
+                # Send it to the parent then.
+                # If `error` is not listening there, we are still silent.
+                @trigger('error', message)
+        else
+            # Be silent by default.
+            @handlers.error ?= (err) ->
+            # Trigger it.
+            @handlers.error message
 
 module.exports = Channel

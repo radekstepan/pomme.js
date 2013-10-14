@@ -6999,12 +6999,17 @@ Channel = (function() {
     if (scope) {
       this.scope = scope;
     }
-    this.window = target ? (this.iframe = new iFrame({
-      id: this.id,
-      target: target,
-      scope: this.scope,
-      template: template
-    })).el : window.parent;
+    if (target) {
+      this.window = (this.iframe = new iFrame({
+        id: this.id,
+        target: target,
+        scope: this.scope,
+        template: template
+      })).el;
+    } else {
+      this.window = window.parent;
+      this.child = true;
+    }
     if (window === this.window) {
       throw 'Samskipti target window is same as present window';
     }
@@ -7039,8 +7044,14 @@ Channel = (function() {
   };
 
   Channel.prototype.trigger = function(method, opts) {
-    var defunc, params,
+    var defunc, e, params,
       _this = this;
+    try {
+      JSON.stringify(opts);
+    } catch (_error) {
+      e = _error;
+      return this.error(e);
+    }
     params = (defunc = function(obj) {
       var id;
       if (_.isFunction(obj)) {
@@ -7078,7 +7089,7 @@ Channel = (function() {
   };
 
   Channel.prototype.onMessage = function(origin, method, params) {
-    var handler, makefunc,
+    var err, handler, makefunc,
       _this = this;
     params = (makefunc = function(obj) {
       switch (false) {
@@ -7090,17 +7101,21 @@ Channel = (function() {
           });
         case !(_.isString(obj) && obj.match(constants["function"])):
           return function() {
-            return _this.trigger(obj, arguments);
+            return _this.trigger(obj, _.toArray(arguments));
           };
         default:
           return obj;
       }
     })(params);
     if (handler = this.handlers[method]) {
-      if (method.match(constants["function"])) {
-        return handler.apply(null, _.toArray(params));
-      } else {
-        return handler(params);
+      if (!method.match(constants["function"])) {
+        params = [params];
+      }
+      try {
+        return handler.apply(null, params);
+      } catch (_error) {
+        err = _error;
+        return this.error(err);
       }
     }
   };
@@ -7125,6 +7140,40 @@ Channel = (function() {
 
   Channel.prototype.unbind = function(method) {
     return delete this.handlers[method];
+  };
+
+  Channel.prototype.error = function(err) {
+    var message, _base;
+    message = null;
+    switch (false) {
+      case !_.isString(err):
+        message = err;
+        break;
+      case !_.isArray(err):
+        message = err[1];
+        break;
+      case !(_.isObject(err) && _.isString(err.message)):
+        message = err.message;
+    }
+    if (!message) {
+      try {
+        message = JSON.stringify(err);
+      } catch (_error) {
+        message = err.toString();
+      }
+    }
+    if (this.child) {
+      if (_.isFunction(this.handlers.error)) {
+        return this.handlers.error(message);
+      } else {
+        return this.trigger('error', message);
+      }
+    } else {
+      if ((_base = this.handlers).error == null) {
+        _base.error = function(err) {};
+      }
+      return this.handlers.error(message);
+    }
   };
 
   return Channel;
