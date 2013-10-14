@@ -6963,7 +6963,7 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 
 });
 require.register("samskipti/src/channel.js", function(exports, require, module){
-var ChanID, Channel, TransID, iFrame, nextTick, router, _, _ref,
+var ChanID, Channel, FnID, constants, iFrame, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
 _ = require('lodash');
@@ -6972,7 +6972,9 @@ nextTick = require('next-tick');
 
 iFrame = require('./iframe');
 
-_ref = require('./router'), TransID = _ref.TransID, ChanID = _ref.ChanID, router = _ref.router;
+_ref = require('./router'), ChanID = _ref.ChanID, FnID = _ref.FnID, router = _ref.router;
+
+constants = require('./constants');
 
 Channel = (function() {
   Channel.prototype.ready = false;
@@ -6982,14 +6984,17 @@ Channel = (function() {
   Channel.prototype.scope = 'testScope';
 
   function Channel(opts) {
-    this.onReady = __bind(this.onReady, this);
     this.onMessage = __bind(this.onMessage, this);
-    var scope, target, template,
+    this.onReady = __bind(this.onReady, this);
+    var debug, scope, target, template,
       _this = this;
     if (opts == null) {
       opts = {};
     }
-    target = opts.target, scope = opts.scope, template = opts.template;
+    target = opts.target, scope = opts.scope, template = opts.template, debug = opts.debug;
+    if (debug) {
+      this.debug = true;
+    }
     this.id = new ChanID().id;
     if (scope) {
       this.scope = scope;
@@ -7004,108 +7009,27 @@ Channel = (function() {
       throw 'Samskipti target window is same as present window';
     }
     this.handlers = {};
-    this.outgoing = {};
     this.pending = [];
     router.register(this.window, this.origin, this.scope, this.onMessage);
-    this.on('__ready', this.onReady);
+    this.on(constants.ready, this.onReady);
     nextTick(function() {
       return _this.postMessage({
-        'method': _this.scopeMethod('__ready'),
+        'method': _this.scopeMethod(constants.ready),
         'params': 'ping'
       }, true);
     });
   }
 
-  Channel.prototype.onMessage = function(origin, method, message) {
-    var e, e2, error, id, result, _ref1;
-    id = message.id;
-    switch (false) {
-      case !(id && method && this.handlers[method]):
-        try {
-          result = this.handlers[method].apply(null, [message.params]);
-          return this.postMessage({
-            id: id,
-            result: result
-          });
-        } catch (_error) {
-          e = _error;
-          error = 'runtime_error';
-          message = null;
-          switch (false) {
-            case !_.isString(e):
-              message = e;
-              break;
-            case !_.isArray(e):
-              error = e[0], message = e[1];
-              break;
-            case !_.isObject(e):
-              if (_.isString(e.error)) {
-                error = e.error;
-                switch (false) {
-                  case !!e.message:
-                    message = '';
-                    break;
-                  case !_.isString(e.message):
-                    message = e.message;
-                    break;
-                  default:
-                    e = e.message;
-                }
-              }
-          }
-          if (!message) {
-            try {
-              message = JSON.stringify(e);
-            } catch (_error) {
-              e2 = _error;
-              message = e.toString();
-            }
-          }
-          return this.postMessage({
-            id: id,
-            error: error,
-            message: message
-          });
-        }
-        break;
-      case !id:
-        if (!this.outgoing[id]) {
-          return this.log("ignoring invalid response: " + id);
-        } else {
-          _ref1 = message, error = _ref1.error, message = _ref1.message, id = _ref1.id, result = _ref1.result;
-          if (error) {
-            if (this.outgoing[id].error) {
-              this.outgoing[id].error(error, message);
-            }
-          } else {
-            this.outgoing[id].success(result || null);
-          }
-          delete this.outgoing[id];
-          return delete router.transactions[id];
-        }
-        break;
-      case !(method && this.handlers[method]):
-        return this.handlers[method]({
-          origin: origin
-        }, message.params);
-    }
-  };
-
-  Channel.prototype.onReady = function(trans, type) {
+  Channel.prototype.onReady = function(type) {
     var _results;
-    this.log('ready msg received');
     if (this.ready) {
       throw 'received ready message while in ready state';
     }
     this.id += type === 'ping' ? ':A' : ':B';
-    this.unbind('__ready');
+    this.unbind(constants.ready);
     this.ready = true;
-    this.log('ready msg accepted');
     if (type === 'ping') {
-      this.trigger({
-        'method': '__ready',
-        'params': 'pong'
-      });
+      this.trigger(constants.ready, 'pong');
     }
     _results = [];
     while (this.pending.length) {
@@ -7114,38 +7038,75 @@ Channel = (function() {
     return _results;
   };
 
+  Channel.prototype.trigger = function(method, opts) {
+    var defunc, params,
+      _this = this;
+    params = (defunc = function(obj) {
+      var id;
+      if (_.isFunction(obj)) {
+        id = new FnID().id;
+        _this.on(id, obj);
+        return id;
+      } else {
+        switch (false) {
+          case !_.isArray(obj):
+            return _.collect(obj, defunc);
+          case !_.isObject(obj):
+            return _.transform(obj, function(result, val, key) {
+              return result[key] = defunc(val);
+            });
+          default:
+            return obj;
+        }
+      }
+    })(opts);
+    return this.postMessage({
+      'method': this.scopeMethod(method),
+      params: params
+    });
+  };
+
   Channel.prototype.postMessage = function(message, force) {
     if (force == null) {
       force = false;
     }
-    this.log('will post', message);
     if (!force && !this.ready) {
       return this.pending.push(message);
     }
+    message[constants.postmessage] = true;
     return this.window.postMessage(JSON.stringify(message), this.origin);
+  };
+
+  Channel.prototype.onMessage = function(origin, method, params) {
+    var handler, makefunc,
+      _this = this;
+    params = (makefunc = function(obj) {
+      switch (false) {
+        case !_.isArray(obj):
+          return _.collect(obj, makefunc);
+        case !_.isObject(obj):
+          return _.transform(obj, function(result, val, key) {
+            return result[key] = makefunc(val);
+          });
+        case !(_.isString(obj) && obj.match(constants["function"])):
+          return function() {
+            return _this.trigger(obj, arguments);
+          };
+        default:
+          return obj;
+      }
+    })(params);
+    if (handler = this.handlers[method]) {
+      if (method.match(constants["function"])) {
+        return handler.apply(null, _.toArray(params));
+      } else {
+        return handler(params);
+      }
+    }
   };
 
   Channel.prototype.scopeMethod = function(method) {
     return [this.scope, method].join('::');
-  };
-
-  Channel.prototype.log = function() {
-    var args, _ref1;
-    if (this.debug && (((_ref1 = window.console) != null ? _ref1.log : void 0) != null)) {
-      args = _(arguments).toArray().reduce(function(all, item) {
-        var e;
-        if (_.isString(item)) {
-          return all + ' ' + item;
-        }
-        try {
-          return all + ' ' + JSON.stringify(item);
-        } catch (_error) {
-          e = _error;
-          return false;
-        }
-      });
-      return console.log("[" + this.id + "]", args);
-    }
   };
 
   Channel.prototype.on = function(method, cb) {
@@ -7162,43 +7123,6 @@ Channel = (function() {
     return this;
   };
 
-  Channel.prototype.trigger = function(message) {
-    var error, id, method, params, payload, success;
-    if (!message) {
-      throw 'missing arguments to trigger function';
-    }
-    if (!_.isString(message.method)) {
-      throw '`method` argument to trigger must be string';
-    }
-    method = message.method, params = message.params;
-    method = this.scopeMethod(method);
-    if (!(message.succes || message.error)) {
-      return this.postMessage({
-        method: method,
-        params: params
-      });
-    }
-    if (!_.isFunction(message.success)) {
-      throw '`success` callback missing from trigger';
-    }
-    if (!_.isFunction(message.error)) {
-      throw '`error` callback missing from trigger';
-    }
-    id = new TransID().id;
-    payload = {
-      id: id,
-      method: method,
-      params: params
-    };
-    error = message.error, success = message.success;
-    this.outgoing[id] = {
-      error: error,
-      success: success
-    };
-    router.transactions[id] = this.onMessage;
-    return this.postMessage(payload);
-  };
-
   Channel.prototype.unbind = function(method) {
     return delete this.handlers[method];
   };
@@ -7211,10 +7135,13 @@ module.exports = Channel;
 
 });
 require.register("samskipti/src/router.js", function(exports, require, module){
-var ChanID, Router, TransID, router, _,
-  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+var ChanID, FnID, Router, constants, router, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+  __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 _ = require('lodash');
+
+constants = require('./constants');
 
 Router = (function() {
   function Router() {
@@ -7278,56 +7205,39 @@ Router = (function() {
     }
   };
 
-  Router.prototype.route = function(e) {
-    var m, method, origin, route, scope, _base, _i, _len, _name, _ref, _ref1, _ref2;
+  Router.prototype.route = function(event) {
+    var data, method, origin, route, scope, _i, _len, _ref, _ref1, _ref2, _ref3;
+    data = null;
     try {
-      m = JSON.parse(e.data);
-      if (!_.isObject(m)) {
-        throw 'malformed';
-      }
-    } catch (_error) {
-      e = _error;
+      data = JSON.parse(event.data);
+    } catch (_error) {}
+    if (!(_.isObject(data) && (_ref = constants.postmessage, __indexOf.call(_.keys(data), _ref) >= 0))) {
       return;
     }
     scope = null;
     method = null;
-    if (_.isString(m.method)) {
-      _ref = m.method.split('::'), scope = _ref[0], method = _ref[1];
+    if (_.isString(data.method)) {
+      _ref1 = data.method.match(/^([^:]+)::(.+)$/).slice(1, 3), scope = _ref1[0], method = _ref1[1];
       if (!(scope && method)) {
-        method = m.method;
+        method = data.method;
       }
     }
-    switch (false) {
-      case !_.isString(method):
-        _ref1 = [e.origin, '*'];
-        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-          origin = _ref1[_i];
-          if (((_ref2 = this.table[origin]) != null ? _ref2[scope] : void 0) != null) {
-            if (route = _.find(this.table[origin][scope], {
-              'win': e.source
-            })) {
-              return route.handler(origin, method, m);
-            }
+    if (method) {
+      _ref2 = [event.origin, '*'];
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        origin = _ref2[_i];
+        if (((_ref3 = this.table[origin]) != null ? _ref3[scope] : void 0) != null) {
+          if (route = _.find(this.table[origin][scope], {
+            'win': event.source
+          })) {
+            return route.handler(origin, method, data.params);
           }
         }
-        break;
-      case !m.id:
-        return typeof (_base = router.transactions)[_name = m.id] === "function" ? _base[_name](e.origin, method, m) : void 0;
+      }
     }
   };
 
   return Router;
-
-})();
-
-TransID = (function() {
-  TransID.prototype._id = 1;
-
-  function TransID() {
-    this.id = TransID.prototype._id++;
-  }
-
-  return TransID;
 
 })();
 
@@ -7339,6 +7249,17 @@ ChanID = (function() {
   }
 
   return ChanID;
+
+})();
+
+FnID = (function() {
+  FnID.prototype._id = 0;
+
+  function FnID() {
+    this.id = constants["function"] + FnID.prototype._id++;
+  }
+
+  return FnID;
 
 })();
 
@@ -7357,20 +7278,22 @@ switch (false) {
 }
 
 module.exports = {
-  TransID: TransID,
   ChanID: ChanID,
+  FnID: FnID,
   router: router
 };
 
 });
 require.register("samskipti/src/iframe.js", function(exports, require, module){
-var iFrame;
+var constants, iFrame;
+
+constants = require('./constants');
 
 iFrame = (function() {
   function iFrame(_arg) {
     var html, id, iframe, scope, target, template;
     id = _arg.id, target = _arg.target, scope = _arg.scope, template = _arg.template;
-    this.name = '__samskipti::' + id || +(new Date);
+    this.name = constants.iframe + id || +(new Date);
     iframe = document.createElement('iframe');
     iframe.name = this.name;
     document.querySelector(target).appendChild(iframe);
@@ -7392,6 +7315,15 @@ iFrame = (function() {
 })();
 
 module.exports = iFrame;
+
+});
+require.register("samskipti/src/constants.js", function(exports, require, module){
+module.exports = {
+  'postmessage': '__samskipti__',
+  'function': '__function::',
+  'iframe': '__samskipti::',
+  'ready': '__ready'
+};
 
 });
 require.register("samskipti/src/template.js", function(exports, require, module){

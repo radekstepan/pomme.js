@@ -10,6 +10,7 @@
         "src/channel.coffee",
         "src/router.coffee",
         "src/iframe.coffee",
+        "src/constants.coffee",
         "src/template.eco"
     ]
 }

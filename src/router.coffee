@@ -1,5 +1,7 @@
 _ = require 'lodash'
 
+constants = require './constants'
+
 # Maintain a routing table.
 class Router
 
@@ -35,46 +37,41 @@ class Router
         delete @table[origin][scope] unless @table[origin][scope].length
 
     # Route a message.
-    route: (e) =>
+    route: (event) =>
+        data = null
         # Only accept "our" messages. What if other libs use JSON too?
-        try
-            m = JSON.parse e.data
-            throw 'malformed' unless _.isObject m
-        catch e
-            return
+        try data = JSON.parse event.data
+
+        # Well formed but not for our app.
+        return unless _.isObject(data) and constants.postmessage in _.keys(data)
 
         scope = null ; method = null
 
-        if _.isString(m.method)
-            [ scope, method ] = m.method.split('::')
-            method = m.method unless scope and method
-
-        switch
-            # Has a method.
-            when _.isString method
-                # A URI/whatever based origin.
-                for origin in [ e.origin, '*' ] when @table[origin]?[scope]?
-                    if route = _.find(@table[origin][scope], { 'win': e.source })
-                        return route.handler(origin, method, m)
+        if _.isString(data.method)
+            # Split on the first separator.
+            [ scope, method ] = data.method.match(/^([^:]+)::(.+)$/)[1..2]
+            # Unscoped?
+            method = data.method unless scope and method
         
-            # Has message id.
-            when m.id
-                router.transactions[m.id]?(e.origin, method, m)
+        # A URI/whatever based origin.
+        if method
+            for origin in [ event.origin, '*' ] when @table[origin]?[scope]?
+                if route = _.find(@table[origin][scope], { 'win': event.source })
+                    return route.handler(origin, method, data.params)
 
 
-# Wrappers around transaction & channel ids.
-class TransID
-    
-    _id: 1
-    
-    constructor: -> @id = TransID::_id++
-
+# ID generators.
 class ChanID
     
     _id: 0
 
     constructor: -> @id = ChanID::_id++
 
+class FnID
+
+    _id: 0
+
+    constructor: -> @id = constants.function + FnID::_id++
 
 # Browser capabilities check
 throw ('Samskipti cannot run in this browser, no postMessage') unless 'postMessage' of window
@@ -91,4 +88,4 @@ switch
         window.attachEvent 'onmessage', router.route
 
 # All for one.
-module.exports = { TransID, ChanID, router }
+module.exports = { ChanID, FnID, router }

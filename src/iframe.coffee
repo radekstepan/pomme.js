@@ -1,7 +1,9 @@
+constants = require './constants'
+
 class iFrame
 
     constructor: ({ id, target, scope, template }) ->
-        @name = '__samskipti::' + id or + new Date
+        @name = constants.iframe + id or + new Date
 
         # Create the iframe.
         iframe = document.createElement 'iframe'

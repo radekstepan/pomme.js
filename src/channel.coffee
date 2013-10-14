@@ -4,7 +4,9 @@ nextTick = require 'next-tick'
 iFrame = require './iframe'
 
 # Get the singleton of the router all channels use.
-{ TransID, ChanID, router }  = require './router'
+{ ChanID, FnID, router }  = require './router'
+# App-wide constants.
+constants = require './constants'
 
 class Channel
 
@@ -23,11 +25,14 @@ class Channel
         opts ?= {}
 
         # Explode.
-        { target, scope, template } = opts
+        { target, scope, template, debug } = opts
+
+        # Shall we debug?
+        @debug = yes if debug
 
         # A new channel id.
         { @id } = new ChanID()
-        
+
         # Which scope to use?
         @scope = scope if scope
 
@@ -40,145 +45,110 @@ class Channel
         # Method names to message handlers.
         @handlers = {}
         
-        # Outgoing transactions.
-        @outgoing = {}
-        
         # Pending messages when not ready yet.
         @pending = []
-                
+
         # Register channel with the router.
         router.register @window, @origin, @scope, @onMessage
 
         # Be ready when we are ready...
-        @on '__ready', @onReady
+        @on constants.ready, @onReady
 
         # Say to the other window we are ready. Need to force the message.
         nextTick =>
-            @postMessage {
-                'method': @scopeMethod('__ready')
-                'params': 'ping'
-            }, yes
-
-    # On an incoming message.
-    onMessage: (origin, method, message) =>
-        { id } = message
-
-        switch
-            # This is a message with a handler.
-            when id and method and @handlers[method]
-                # Try getting a response by running the handler.
-                try
-                    result = @handlers[method].apply null, [ message.params ]
-                    # We are done, no problems.
-                    @postMessage { id, result }
-                
-                # Problems with running the handler.
-                catch e
-                    error = 'runtime_error' ; message = null
-                    
-                    # Parse the error.
-                    switch
-                        when _.isString e
-                            message = e
-                        
-                        when _.isArray e
-                            [ error, message ] = e
-
-                        when _.isObject e
-                            if _.isString e.error
-                                error = e.error
-                                
-                                switch
-                                    when not e.message
-                                        message = ''
-                                    when _.isString e.message
-                                        message = e.message
-                                    else
-                                        e = e.message
-                    
-                    # Try stringifying.
-                    unless message
-                        try
-                            message = JSON.stringify e
-                        catch e2
-                            message = do e.toString
-                    
-                    # Execute the error callback.
-                    @postMessage { id, error, message }
-            
-            # Only message id.
-            when id
-                unless @outgoing[id]
-                    @log "ignoring invalid response: #{id}"
-                else
-                    { error, message, id, result } = message
-                    # Has error happened?
-                    if error
-                        @outgoing[id].error(error, message) if @outgoing[id].error
-                    # Call success handler.
-                    else
-                        @outgoing[id].success(result or null)
-                    
-                    delete @outgoing[id]
-                    delete router.transactions[id]
-            
-            # A notification.
-            when method and @handlers[method]
-                @handlers[method] { origin }, message.params
+            @postMessage { 'method': @scopeMethod(constants.ready), 'params': 'ping' }, yes
 
     # Ping the other window.
-    onReady: (trans, type) =>
-        @log 'ready msg received'
+    onReady: (type) =>
         throw 'received ready message while in ready state' if @ready
         
         # Set who is parent/child.
         @id += if type is 'ping' then ':A' else ':B'
         
         # No longer need to be called.
-        @unbind '__ready'
+        @unbind constants.ready
 
         # Am ready.
         @ready = yes
-        
-        # Say so.
-        @log 'ready msg accepted'
-        
+
         # Call back?
-        @trigger {
-            'method': '__ready'
-            'params': 'pong'
-        } if type is 'ping'
+        @trigger constants.ready, 'pong' if type is 'ping'
 
         # Post enqueued messages.
         ( @postMessage do @pending.pop while @pending.length )
 
+    # Interface to invoke a function on the other end.
+    trigger: (method, opts) ->
+        # Serialize the opts creating function callbacks when needed.
+        params = (defunc = (obj) =>
+            if _.isFunction obj
+                # Get a new function id.
+                { id } = new FnID()
+                # Save the fn callback.
+                @on id, obj
+                # Return the handle.
+                id
+            else
+                # Iterate over it.
+                switch
+                    # An array.
+                    when _.isArray obj
+                        _.collect obj, defunc
+                    # Object and not an array.
+                    when _.isObject obj
+                        _.transform obj, (result, val, key) -> result[key] = defunc val
+                    # Primitive.
+                    else obj
+        ) opts
+
+        @postMessage { 'method': @scopeMethod(method), params }
+
     # Post or enqueue messages to be posted.
     postMessage: (message, force=no) ->
-        @log 'will post', message
-        
         # Enqueue if we are not pinging or are not ready.
         return @pending.push(message) if not force and not @ready
+
+        # How to identify our messages?
+        message[constants.postmessage] = yes
 
         # Call the other window.
         @window.postMessage JSON.stringify(message), @origin
 
+    # On an incoming message.
+    onMessage: (origin, method, params) =>
+        # Form function callbacks on our end from passed params.
+        params = (makefunc = (obj) =>
+            # Iterate over it.
+            switch
+                # An array.
+                when _.isArray obj
+                    _.collect obj, makefunc
+                # Object and not an array.
+                when _.isObject obj
+                    _.transform obj, (result, val, key) -> result[key] = makefunc val
+                # Matching function pattern.
+                when _.isString(obj) and obj.match(constants.function)
+                    # When we get called...
+                    =>
+                        # Send a message to the other end invoking a callback function.
+                        @trigger obj, arguments
+                
+                # Primitive.
+                else obj
+        ) params
+
+        # Invoke the handler.
+        if handler = @handlers[method]
+            # Does it have a function prefix?
+            if method.match(constants.function)
+                # Need to apply params.
+                handler.apply null, _.toArray(params)
+            else
+                handler params
+
     # Prefix method name with its scope.
     scopeMethod: (method) ->
         [ @scope, method ].join('::')
-
-    # Shall we log to the console?
-    log: ->
-        if @debug and window.console?.log?
-            # Stringify args.
-            args = _(arguments).toArray().reduce( (all, item) ->
-                return all + ' ' + item if _.isString(item) # already a string?
-                try
-                    all + ' ' + JSON.stringify(item) # stringify then
-                catch e
-                    no # keep quiet
-            )
-            # We clearly shall...
-            console.log "[#{@id}]", args
 
     # Register a method handler. One window saying what to do on receiving msg.
     on: (method, cb) ->
@@ -189,40 +159,6 @@ class Channel
         @handlers[method] = cb
         
         @
-
-    # Interface to trigger a message post.
-    trigger: (message) ->
-        # Validate.
-        throw 'missing arguments to trigger function' unless message
-        throw '`method` argument to trigger must be string' unless _.isString message.method
-        
-        { method, params } = message
-
-        method = @scopeMethod method
-
-        # Just notify?
-        unless message.succes or message.error
-            # Post a message without creating a transaction. Like ping/pong.
-            return @postMessage { method, params }
-
-        throw '`success` callback missing from trigger' unless _.isFunction message.success
-        throw '`error` callback missing from trigger' unless _.isFunction message.error
-
-        # Get a new transaction id.
-        { id } = new TransID()
-
-        # Build a 'request' message and send it.
-        payload = { id, method, params }
-        
-        # Get the error and success callbacks.
-        { error, success } = message
-
-        # Insert message into outgoing bin.
-        @outgoing[id] = { error, success }
-        router.transactions[id] = @onMessage
-
-        # Post it.
-        @postMessage payload
 
     # Unregister a method handler. Primarily used internally.
     unbind: (method) ->

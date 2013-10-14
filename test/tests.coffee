@@ -2,21 +2,7 @@ Sam = require 'samskipti'
 
 suite 'Samskipti', ->
 
-    test 'should get response to a message from parent', (done) ->
-        channel = new Sam
-            'target': 'body'
-
-        channel.trigger
-            'method': 'reverse'
-            'params':
-                'text': 'ABC'
-            success: (v) ->
-                assert.equal 'CBA', v
-                do done
-            error: (err, message) ->
-                assert.ifError err
-
-    test 'should be able to inject a custom template', (done) ->
+    test 'should be able to trigger a function with a callback', (done) ->
         channel = new Sam
             'target': 'body'
             'template': ({ scope }) -> """
@@ -27,21 +13,16 @@ suite 'Samskipti', ->
                     
                     var channel = new Sam();
                     
-                    channel.on('lowercase', function(obj) {
-                        return obj.text.toLowerCase();
+                    channel.on('fn', function(cb) {
+                        cb(null, 'ok');
                     });
                 })();
                 </script>
             """
 
-        channel.trigger
-            'method': 'lowercase'
-            'params':
-                'text': 'DEF'
-            success: (v) ->
-                assert.equal 'def', v
-                do done
-            error: (err, message) ->
-                assert.ifError err
+        channel.trigger 'fn', (err, res) ->
+            assert.ifError err
+            assert.equal res, 'ok'
+            do done
 
 do mocha.run
