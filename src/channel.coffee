@@ -25,10 +25,7 @@ class Channel
         opts ?= {}
 
         # Explode.
-        { target, scope, template, debug } = opts
-
-        # Shall we debug?
-        @debug = yes if debug
+        { target, scope, template } = opts
 
         # A new channel id.
         { @id } = new ChanID()

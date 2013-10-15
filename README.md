@@ -13,22 +13,21 @@ You can see an example in `/test/tests.coffee`.
 
 ###Config
 
-####scope (parent & child)
+<dl>
+  <dt>scope (parent & child)</dt>
+  <dd>Scope is an identifier used by a router to work out how to route messages. It is not strictly required as when you only have 1 parent-child pair, there isn't much guesswork involved...</dd>
 
-Scope is an identifier used by a router to work out how to route messages. It is not strictly required as when you only have 1 parent-child pair, there isn't much guesswork involved...
+  <dt>target (parent)</dt>
+  <dd>This will be the place where your iframe will be rendered.</dd>
 
-####target (parent)
-
-This will be the place where your iframe will be rendered.
-
-####template (parent)
-
-The value here is a function being passed abovementioned `scope`. This function should return an **HTML string (not CoffeeScript)** that will be injected into the child iframe. It needs to setup the comms from the other end.
+  <dt>template (parent)</dt>
+  <dd>The value here is a function being passed abovementioned `scope`. This function should return an **HTML string** that will be injected into the child iframe. It needs to setup the comms from the other end.</dd>
+</dl>
 
 ```javascript
 // wherever this is served from
 var Pomme = require('pomme');
-// Probably needs some params, see below.
+// Probably needs some params, see above.
 var channel = new Pomme();
 // ...
 ```
@@ -37,7 +36,7 @@ var channel = new Pomme();
 
 As a parent, you invoke functions on the child like so:
 
-```coffeescript
+```javascript
 // Assuming this channel is scoped with the parent.
 channel.trigger('glitchy', 'ABC', function(err, result) {
     if (err) throw err;

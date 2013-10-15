@@ -6987,15 +6987,12 @@ Channel = (function() {
   function Channel(opts) {
     this.onMessage = __bind(this.onMessage, this);
     this.onReady = __bind(this.onReady, this);
-    var debug, scope, target, template,
+    var scope, target, template,
       _this = this;
     if (opts == null) {
       opts = {};
     }
-    target = opts.target, scope = opts.scope, template = opts.template, debug = opts.debug;
-    if (debug) {
-      this.debug = true;
-    }
+    target = opts.target, scope = opts.scope, template = opts.template;
     this.id = new ChanID().id;
     if (scope) {
       this.scope = scope;
