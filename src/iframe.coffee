@@ -8,7 +8,7 @@ class iFrame
         # Good selector?
         try document.querySelector target
         catch
-            throw 'target selector cannot be found'
+            return @error 'target selector cannot be found'
 
         @name = constants.iframe + id or + new Date
 
@@ -20,10 +20,10 @@ class iFrame
         # Use a custom template or go spec one?
         template ?= require './template'
 
-        throw 'template is not a function' unless _.isFunction template
+        return @error 'template is not a function' unless _.isFunction template
 
         # Pass it scope.
-        throw 'template did not return a string' unless _.isString html = template { scope }
+        return @error 'template did not return a string' unless _.isString html = template { scope }
 
         # Write custom content.
         do @self.contentWindow.document.open
@@ -33,9 +33,13 @@ class iFrame
         # Refer to the iframe's document.
         @el = window.frames[@name]
 
+    error: (message) ->
+        do @dispose
+        throw message
+
     dispose: ->
         # Destroy DOM.
-        do @self.remove
+        do @self?.remove
         # No moar change.
         Object.freeze? @
 

@@ -263,4 +263,14 @@ suite 'pomme.js', ->
             assert.equal do err.toString, 'template did not return a string'
             do done
 
+    test 'should accept any possible item as a scope', (done) ->
+        channel = new Pomme 'target': 'body', 'scope': ->
+
+        channel.on 'error', (err) ->
+            assert.equal err, 'ok'
+            do channel.dispose
+            do done
+
+        channel.trigger 'eval', "throw 'ok'"
+
 do mocha.run

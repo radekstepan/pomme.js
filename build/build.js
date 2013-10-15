@@ -7227,7 +7227,7 @@ iFrame = (function() {
     try {
       document.querySelector(target);
     } catch (_error) {
-      throw 'target selector cannot be found';
+      return this.error('target selector cannot be found');
     }
     this.name = constants.iframe + id || +(new Date);
     this.self = document.createElement('iframe');
@@ -7237,12 +7237,12 @@ iFrame = (function() {
       template = require('./template');
     }
     if (!_.isFunction(template)) {
-      throw 'template is not a function';
+      return this.error('template is not a function');
     }
     if (!_.isString(html = template({
       scope: scope
     }))) {
-      throw 'template did not return a string';
+      return this.error('template did not return a string');
     }
     this.self.contentWindow.document.open();
     this.self.contentWindow.document.write(html);
@@ -7250,8 +7250,16 @@ iFrame = (function() {
     this.el = window.frames[this.name];
   }
 
+  iFrame.prototype.error = function(message) {
+    this.dispose();
+    throw message;
+  };
+
   iFrame.prototype.dispose = function() {
-    this.self.remove();
+    var _ref;
+    if ((_ref = this.self) != null) {
+      _ref.remove();
+    }
     return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
   };
 
