@@ -7,8 +7,9 @@
         'scope': '<%= @scope %>'
     });
     
-    channel.on('reverse', function(obj) {
-        return obj.text.split('').reverse().join('');
+    // By default you can eval code in this context.
+    channel.on('eval', function(code) {
+        eval(code);
     });
 })();
 </script>

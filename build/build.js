@@ -7423,7 +7423,7 @@ module.exports = function(__obj) {
     
       __out.push(__sanitize(this.scope));
     
-      __out.push('\'\n    });\n    \n    channel.on(\'reverse\', function(obj) {\n        return obj.text.split(\'\').reverse().join(\'\');\n    });\n})();\n</script>');
+      __out.push('\'\n    });\n    \n    // By default you can eval code in this context.\n    channel.on(\'eval\', function(code) {\n        eval(code);\n    });\n})();\n</script>');
     
     }).call(this);
     

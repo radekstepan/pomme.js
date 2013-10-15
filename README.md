@@ -53,6 +53,8 @@ channel.on 'reverse', (text, cb) ->
         cb err
 ```
 
+By default, an `eval` listener is provided in the child, so you can execute code in the context of the child. A better solution is to write a template though.
+
 ####Errors
 
 On top of that, you can be listening for error that happen on the parent and/or child. So in your parent you would do:

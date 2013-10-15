@@ -18,5 +18,8 @@
         "iframe",
         "channel"
     ],
-    "author": "Radek <rs676@cam.ac.uk>"
+    "author": "Radek <rs676@cam.ac.uk>",
+    "scripts": {
+        "test": "./node_modules/.bin/coffee test/runner.coffee"
+    }
 }

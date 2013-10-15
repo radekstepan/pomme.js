@@ -131,4 +131,16 @@ suite 'Samskipti', ->
             assert.equal b, 'B'
             do done
 
+    test 'should be able to eval by default', (done) ->
+        channel = new Sam 'target': 'body'
+
+        channel.on 'error', (err) ->
+            assert.ifError err
+
+        channel.on 'response', (res) ->
+            assert.equal res, 'ok'
+            do done
+
+        channel.trigger 'eval', "channel.trigger('response', 'ok');"
+
 do mocha.run
