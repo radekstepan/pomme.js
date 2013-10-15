@@ -1,6 +1,6 @@
-#samskipti
+#pomme.js
 
-JS comms between parent and child frame.
+JavaScript component for communication between parent and child browser frames using [postMessage](http://devdocs.io/dom/window.postmessage).
 
 ```bash
 $ npm install
@@ -23,11 +23,13 @@ This will be the place where your iframe will be rendered.
 
 ####template (parent)
 
-The value here is a function being passed abovementioned `scope`. This function should return an HTML string (not CoffeeScript) that will be injected into the child iframe. It needs to setup the comms from the other end.
+The value here is a function being passed abovementioned `scope`. This function should return an **HTML string (not CoffeeScript)** that will be injected into the child iframe. It needs to setup the comms from the other end.
 
 ```javascript
-var Sam = require('samskipti'); // wherever this is served from
-var channel = new Sam();
+// wherever this is served from
+var Pomme = require('pomme');
+// Probably needs some params, see below.
+var channel = new Pomme();
 // ...
 ```
 
@@ -36,45 +38,51 @@ var channel = new Sam();
 As a parent, you invoke functions on the child like so:
 
 ```coffeescript
-# Assuming this channel is scoped with the parent.
-channel.trigger 'reverse', 'ABC', (err, result) ->
-    throw err if err
-    console.log result
+// Assuming this channel is scoped with the parent.
+channel.trigger('glitchy', 'ABC', function(err, result) {
+    if (err) throw err;
+    console.log(result);
+});
 ```
 
 As a child you listen on a channel for invokations:
 
-```coffeescript
-channel.on 'reverse', (text, cb) ->
-    try
-        result = text.split('').reverse().join('')
-        cb null, result
-    catch err
-        cb err
+```javascript
+channel.on('glitchy', function(text, cb) {
+    if (Math.floor(Math.random() * 2) == 1) {
+        cb(null, text.split('').reverse().join(''));
+    } else {
+        cb('mañana');
+    }
+});
 ```
 
-By default, an `eval` listener is provided in the child, so you can execute code in the context of the child. A better solution is to write a template though.
+By default, an `eval` listener is provided in the child, so you can execute code in the context of the child. A better solution is to write a template though. In either case, we inject a string of code to the iframe to be executed.
 
 ####Errors
 
 On top of that, you can be listening for error that happen on the parent and/or child. So in your parent you would do:
 
-```coffeescript
-channel.on 'error', (err) ->
-    throw err
+```javascript
+// Listen for errors.
+channel.on('error', function(err) {
+    throw err;
+});
 
-channel.trigger 'die'
+// Trigger on child.
+channel.trigger('die');
 ```
 
 And your child could do this:
 
-```coffeescript
-channel.on 'die', ->
-    throw 'I am dead'
+```javascript
+channel.on('die', function() {
+    throw 'I am dead';
+});
 ```
 
 If you do not specify your own error handler, nothing is thrown/logged.
 
 ##Test it
 
-You can see Mocha tests by serving the `/test` directory and opening it in the browser.
+You can see [Mocha](http://visionmedia.github.io/mocha/) tests by serving the `/test` directory and opening it in the browser.

@@ -1,7 +1,7 @@
 {
-    "name": "samskipti",
+    "name": "pomme.js",
     "version": "0.0.0",
-    "description": "JS comms between parent and child frame",
+    "description": "JS comms between frames using postMessage",
     "devDependencies": {
         "coffee-script": "~1.6.3",
         "apps-b-builder": "0.3.0",
@@ -9,7 +9,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git@github.com:radekstepan/samskipti.git"
+        "url": "git@github.com:radekstepan/pomme.js.git"
     },
     "keywords": [
         "postmessage",
@@ -18,8 +18,5 @@
         "iframe",
         "channel"
     ],
-    "author": "Radek <rs676@cam.ac.uk>",
-    "scripts": {
-        "test": "./node_modules/.bin/coffee test/runner.coffee"
-    }
+    "author": "Radek <rs676@cam.ac.uk>"
 }

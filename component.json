@@ -1,5 +1,5 @@
 {
-    "name": "samskipti",
+    "name": "pomme",
     "main": "src/channel.js",
     "version": "0.0.0",
     "dependencies": {
@@ -8,9 +8,10 @@
     },
     "scripts": [
         "src/channel.coffee",
-        "src/router.coffee",
-        "src/iframe.coffee",
         "src/constants.coffee",
+        "src/iframe.coffee",
+        "src/router.coffee",
+        
         "src/template.eco"
     ]
 }

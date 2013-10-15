@@ -44,7 +44,7 @@ class Channel
             @child = yes
 
         # Make sure we do not communicate with ourselves.
-        throw 'Samskipti target window is same as present window' if window is @window
+        throw 'child and parent windows cannot be one and the same' if window is @window
 
         # Method names to message handlers.
         @handlers = {}
@@ -64,7 +64,7 @@ class Channel
 
     # Ping the other window.
     onReady: (type) =>
-        throw 'received ready message while in ready state' if @ready
+        return @error 'received ready message while in ready state' if @ready
 
         # Set who is parent/child.
         @id += if type is 'ping' then ':A' else ':B'
@@ -147,16 +147,17 @@ class Channel
                 else obj
         ) params
 
-        # Invoke the handler.
-        if handler = @handlers[method]
-            # Just making sure...
-            params = [ params ] unless _.isArray(params)
+        # Skip if not present.
+        return unless _.isFunction handler = @handlers[method]
 
-            # Call.
-            try
-                handler.apply null, params
-            catch err
-                @error err
+        # Just making sure...
+        params = [ params ] unless _.isArray(params)
+
+        # Call.
+        try
+            handler.apply null, params
+        catch err
+            @error err
 
     # Prefix method name with its scope.
     scopeMethod: (method) ->
@@ -164,16 +165,17 @@ class Channel
 
     # Register a method handler. One window saying what to do on receiving msg.
     on: (method, cb) ->
-        throw '`method` must be string' if not method or not _.isString method
-        throw 'callback missing' if not cb or not _.isFunction cb
-        throw "method `#{method}` is already bound" if @handlers[method]
-        
+        return @error '`method` must be string' if not method or not _.isString method
+        return @error 'callback missing' if not cb or not _.isFunction cb
+        return @error "`#{method}` is already bound" if @handlers[method]
+
         @handlers[method] = cb
         
         @
 
     # Unregister a method handler. Primarily used internally.
     unbind: (method) ->
+        return @error "`#{method}` is not bound" unless method of @handlers
         delete @handlers[method]
 
     # Throw an error.
@@ -212,5 +214,15 @@ class Channel
             @handlers.error ?= (err) ->
             # Trigger it.
             @handlers.error message
+
+    # Kill me...
+    dispose: ->
+        # Has iframe?
+        @iframe?.dispose()
+        # Any listeners? Only keep error the error one.
+        ( @unbind key for key, val of @handlers when key isnt 'error' )
+        # No moar change.
+        Object.freeze? @handlers
+        Object.freeze? @
 
 module.exports = Channel

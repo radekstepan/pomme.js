@@ -6962,7 +6962,7 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 }
 
 });
-require.register("samskipti/src/channel.js", function(exports, require, module){
+require.register("pomme/src/channel.js", function(exports, require, module){
 var ChanID, Channel, FnID, constants, iFrame, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
@@ -7012,7 +7012,7 @@ Channel = (function() {
       this.child = true;
     }
     if (window === this.window) {
-      throw 'Samskipti target window is same as present window';
+      throw 'child and parent windows cannot be one and the same';
     }
     this.handlers = {};
     this.pending = [];
@@ -7029,7 +7029,7 @@ Channel = (function() {
   Channel.prototype.onReady = function(type) {
     var _results;
     if (this.ready) {
-      throw 'received ready message while in ready state';
+      return this.error('received ready message while in ready state');
     }
     this.id += type === 'ping' ? ':A' : ':B';
     this.unbind(constants.ready);
@@ -7109,16 +7109,17 @@ Channel = (function() {
           return obj;
       }
     })(params);
-    if (handler = this.handlers[method]) {
-      if (!_.isArray(params)) {
-        params = [params];
-      }
-      try {
-        return handler.apply(null, params);
-      } catch (_error) {
-        err = _error;
-        return this.error(err);
-      }
+    if (!_.isFunction(handler = this.handlers[method])) {
+      return;
+    }
+    if (!_.isArray(params)) {
+      params = [params];
+    }
+    try {
+      return handler.apply(null, params);
+    } catch (_error) {
+      err = _error;
+      return this.error(err);
     }
   };
 
@@ -7128,19 +7129,22 @@ Channel = (function() {
 
   Channel.prototype.on = function(method, cb) {
     if (!method || !_.isString(method)) {
-      throw '`method` must be string';
+      return this.error('`method` must be string');
     }
     if (!cb || !_.isFunction(cb)) {
-      throw 'callback missing';
+      return this.error('callback missing');
     }
     if (this.handlers[method]) {
-      throw "method `" + method + "` is already bound";
+      return this.error("`" + method + "` is already bound");
     }
     this.handlers[method] = cb;
     return this;
   };
 
   Channel.prototype.unbind = function(method) {
+    if (!(method in this.handlers)) {
+      return this.error("`" + method + "` is not bound");
+    }
     return delete this.handlers[method];
   };
 
@@ -7178,6 +7182,24 @@ Channel = (function() {
     }
   };
 
+  Channel.prototype.dispose = function() {
+    var key, val, _ref1, _ref2;
+    if ((_ref1 = this.iframe) != null) {
+      _ref1.dispose();
+    }
+    _ref2 = this.handlers;
+    for (key in _ref2) {
+      val = _ref2[key];
+      if (key !== 'error') {
+        this.unbind(key);
+      }
+    }
+    if (typeof Object.freeze === "function") {
+      Object.freeze(this.handlers);
+    }
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
   return Channel;
 
 })();
@@ -7185,7 +7207,65 @@ Channel = (function() {
 module.exports = Channel;
 
 });
-require.register("samskipti/src/router.js", function(exports, require, module){
+require.register("pomme/src/constants.js", function(exports, require, module){
+module.exports = {
+  'postmessage': '__pomme__',
+  'function': '__function::',
+  'iframe': '__pomme::',
+  'ready': '__ready'
+};
+
+});
+require.register("pomme/src/iframe.js", function(exports, require, module){
+var constants, iFrame, _;
+
+constants = require('./constants');
+
+_ = require('lodash');
+
+iFrame = (function() {
+  function iFrame(_arg) {
+    var html, id, scope, target, template;
+    id = _arg.id, target = _arg.target, scope = _arg.scope, template = _arg.template;
+    try {
+      document.querySelector(target);
+    } catch (_error) {
+      throw 'target selector cannot be found';
+    }
+    this.name = constants.iframe + id || +(new Date);
+    this.self = document.createElement('iframe');
+    this.self.name = this.name;
+    document.querySelector(target).appendChild(this.self);
+    if (template == null) {
+      template = require('./template');
+    }
+    if (!_.isFunction(template)) {
+      throw 'template is not a function';
+    }
+    if (!_.isString(html = template({
+      scope: scope
+    }))) {
+      throw 'template did not return a string';
+    }
+    this.self.contentWindow.document.open();
+    this.self.contentWindow.document.write(html);
+    this.self.contentWindow.document.close();
+    this.el = window.frames[this.name];
+  }
+
+  iFrame.prototype.dispose = function() {
+    this.self.remove();
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return iFrame;
+
+})();
+
+module.exports = iFrame;
+
+});
+require.register("pomme/src/router.js", function(exports, require, module){
 var ChanID, FnID, Router, constants, router, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
@@ -7335,51 +7415,7 @@ module.exports = {
 };
 
 });
-require.register("samskipti/src/iframe.js", function(exports, require, module){
-var constants, iFrame;
-
-constants = require('./constants');
-
-iFrame = (function() {
-  function iFrame(_arg) {
-    var html, id, iframe, scope, target, template;
-    id = _arg.id, target = _arg.target, scope = _arg.scope, template = _arg.template;
-    this.name = constants.iframe + id || +(new Date);
-    iframe = document.createElement('iframe');
-    iframe.name = this.name;
-    document.querySelector(target).appendChild(iframe);
-    if (template == null) {
-      template = require('./template');
-    }
-    html = template({
-      scope: scope
-    });
-    iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(html);
-    iframe.contentWindow.document.close();
-    iframe.style.border = 0;
-    iframe.style.height = 0;
-    iframe.style.width = 0;
-    this.el = window.frames[this.name];
-  }
-
-  return iFrame;
-
-})();
-
-module.exports = iFrame;
-
-});
-require.register("samskipti/src/constants.js", function(exports, require, module){
-module.exports = {
-  'postmessage': '__samskipti__',
-  'function': '__function::',
-  'iframe': '__samskipti::',
-  'ready': '__ready'
-};
-
-});
-require.register("samskipti/src/template.js", function(exports, require, module){
+require.register("pomme/src/template.js", function(exports, require, module){
 module.exports = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
@@ -7419,7 +7455,7 @@ module.exports = function(__obj) {
   }
   (function() {
     (function() {
-      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Sam = require(\'samskipti\');\n    \n    var channel = new Sam({\n        \'scope\': \'');
+      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Pomme = require(\'pomme\');\n    \n    var channel = new Pomme({\n        \'scope\': \'');
     
       __out.push(__sanitize(this.scope));
     
@@ -7434,11 +7470,11 @@ module.exports = function(__obj) {
 });
 
 
-require.alias("lodash-lodash/index.js", "samskipti/deps/lodash/index.js");
-require.alias("lodash-lodash/dist/lodash.compat.js", "samskipti/deps/lodash/dist/lodash.compat.js");
+require.alias("lodash-lodash/index.js", "pomme/deps/lodash/index.js");
+require.alias("lodash-lodash/dist/lodash.compat.js", "pomme/deps/lodash/dist/lodash.compat.js");
 require.alias("lodash-lodash/index.js", "lodash/index.js");
 
-require.alias("timoxley-next-tick/index.js", "samskipti/deps/next-tick/index.js");
+require.alias("timoxley-next-tick/index.js", "pomme/deps/next-tick/index.js");
 require.alias("timoxley-next-tick/index.js", "next-tick/index.js");
 
-require.alias("samskipti/src/channel.js", "samskipti/index.js");
+require.alias("pomme/src/channel.js", "pomme/index.js");

@@ -1,9 +1,9 @@
 <script src="assets/build.js"></script>
 <script>
 (function() {
-    var Sam = require('samskipti');
+    var Pomme = require('pomme');
     
-    var channel = new Sam({
+    var channel = new Pomme({
         'scope': '<%= @scope %>'
     });
     
