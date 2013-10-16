@@ -1,6 +1,6 @@
-constants = require './constants'
-
 _ = require 'lodash'
+
+constants = require './constants'
 
 class iFrame
 
@@ -13,9 +13,9 @@ class iFrame
         name = constants.iframe + id or + new Date
 
         # Create the iframe.
-        @self = document.createElement 'iframe'
-        @self.name = name
-        document.querySelector(target).appendChild @self
+        @node = document.createElement 'iframe'
+        @node.name = name
+        document.querySelector(target).appendChild @node
 
         # Use a custom template or go spec one?
         template ?= require './template'
@@ -26,9 +26,9 @@ class iFrame
         return @error 'template did not return a string' unless _.isString html = template { scope }
 
         # Write custom content.
-        do @self.contentWindow.document.open
-        @self.contentWindow.document.write html
-        do @self.contentWindow.document.close
+        do @node.contentWindow.document.open
+        @node.contentWindow.document.write html
+        do @node.contentWindow.document.close
 
         # Refer to the iframe's document.
         @el = window.frames[name]
@@ -38,8 +38,22 @@ class iFrame
         throw message
 
     dispose: ->
-        # Destroy DOM.
-        do @self?.remove
+        return if @disposed
+        @disposed = yes
+
+        # Destroy DOM (cross-browser).
+        if @node
+            switch
+                # Chrome.
+                when _.isFunction @node.remove
+                    do @node.remove
+                # IE.
+                when _.isFunction @node.removeNode
+                    @node.removeNode yes
+                # This one "should" work.
+                when @node.parentNode
+                    @node.parentNode.removeChild @node
+
         # No moar change.
         Object.freeze? @
 

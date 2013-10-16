@@ -29,6 +29,8 @@ class Channel
         # Which scope to use?
         @scope = scope if scope
 
+        throw 'only strings accepted for a scope' unless _.isString @scope
+
         switch
             # Parent; existing window.
             when _.isWindow target
@@ -85,7 +87,8 @@ class Channel
         try
             JSON.stringify opts
         catch e
-            return @error(e)
+            # Standardize; FF throws 'cyclic object value'
+            return @error 'converting circular structure to JSON'
 
         # Serialize the opts creating function callbacks when needed.
         params = (defunc = (obj) =>
@@ -115,12 +118,14 @@ class Channel
 
     # Post or enqueue messages to be posted.
     postMessage: (message, force=no) ->
+        # Sometimes we are already disposed.
+        return if @disposed
         # Enqueue if we are not pinging or are not ready.
         return @pending.push(message) if not force and not @ready
 
         # How to identify our messages?
         message[constants.postmessage] = yes
-
+        
         # Call the other window.
         @window.postMessage JSON.stringify(message), '*'
 
@@ -165,6 +170,8 @@ class Channel
 
     # Register a method handler. One window saying what to do on receiving msg.
     on: (method, cb) ->
+        return if @disposed
+        
         return @error '`method` must be string' if not method or not _.isString method
         return @error 'callback missing' if not cb or not _.isFunction cb
         return @error "`#{method}` is already bound" if @handlers[method]
@@ -186,10 +193,8 @@ class Channel
         switch
             when _.isString err
                 message = err
-            
             when _.isArray err
                 message = err[1]
-
             when _.isObject(err) and _.isString(err.message)
                 message = err.message
 
@@ -217,8 +222,10 @@ class Channel
 
     # Kill me...
     dispose: ->
+        return if @disposed
+        @disposed = yes
         # Has iframe?
-        @iframe?.dispose()
+        do @iframe?.dispose
         # Any listeners? Only keep error the error one.
         ( @unbind key for key, val of @handlers when key isnt 'error' )
         # No moar change.

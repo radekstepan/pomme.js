@@ -13,11 +13,12 @@ class Router
 
     # Add a channel to routing table.
     register: (win, scope='', handler) ->
-        if _.find(@table[scope], { win })
+        @table[scope] ?= []
+        
+        for route in @table[scope] when route.win is win
             throw "a channel is already bound to the same window under `#{scope}`"
         
         # Register this origin & scope.
-        @table[scope] ?= []
         @table[scope].push { win, handler }
 
     # Route a message.
@@ -36,10 +37,12 @@ class Router
             [ scope, method ] = data.method.match(/^([^:]+)::(.+)$/)[1..2]
             # Unscoped?
             method = data.method unless scope and method
-        
+
         if method and @table[scope]?
-            if route = _.find(@table[scope], { 'win': event.source })
-                return route.handler(method, data.params)
+            # Find the route in our table.
+            for route in @table[scope] when route.win is event.source
+                # Trigger the handler.
+                return route.handler method, data.params
 
 
 # ID generators.
@@ -47,13 +50,15 @@ class ChanID
     
     _id: 0
 
-    constructor: -> @id = ChanID::_id++
+    constructor: ->
+        @id = ChanID::_id++
 
 class FnID
 
     _id: 0
 
-    constructor: -> @id = constants.function + FnID::_id++
+    constructor: ->
+        @id = constants.function + FnID::_id++
 
 # Browser capabilities check
 throw 'cannot run in this browser, no postMessage' unless 'postMessage' of window

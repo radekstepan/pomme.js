@@ -13,6 +13,7 @@ suite 'pomme.js', ->
 
         do a.dispose
         do b.dispose
+
         do done
 
     test 'should be able to trigger a function with a callback', (done) ->
@@ -23,9 +24,9 @@ suite 'pomme.js', ->
                 <script>
                 (function() {
                     var Pomme = require('pomme');
-                    
+
                     var channel = new Pomme();
-                    
+
                     channel.on('fn', function(cb) {
                         cb(null, 'ok');
                     });
@@ -46,7 +47,7 @@ suite 'pomme.js', ->
         obj.key = obj
 
         channel.on 'error', (err) ->
-            assert.equal err, 'Converting circular structure to JSON'
+            assert.equal err, 'converting circular structure to JSON'
 
         channel.trigger 'fn', obj
 
@@ -87,7 +88,7 @@ suite 'pomme.js', ->
             """
 
         channel.on 'error', (err) ->
-            assert.equal err, 'Converting circular structure to JSON'
+            assert.equal err, 'converting circular structure to JSON'
             do channel.dispose
             do done
 
@@ -196,10 +197,9 @@ suite 'pomme.js', ->
         assert.equal window.frames.length, length - 1
 
         # Check the handlers present.
-        assert.equal _.keys(channel.handlers).length, 0
+        assert _.isEqual channel.handlers, {}
 
         do done
-        do channel.dispose
 
     test 'should unbind handlers', (done) ->
         channel = new Pomme 'target': 'body'
@@ -263,15 +263,11 @@ suite 'pomme.js', ->
             assert.equal do err.toString, 'template did not return a string'
             do done
 
-    test 'should accept any possible item as a scope', (done) ->
-        channel = new Pomme 'target': 'body', 'scope': ->
-
-        channel.on 'error', (err) ->
-            assert.equal err, 'ok'
-            do channel.dispose
+    test 'should accept only strings as a scope', (done) ->
+        try
+            channel = new Pomme 'target': 'body', 'scope': ->
+        catch e
             do done
-
-        channel.trigger 'eval', "throw 'ok'"
 
     test 'should be able to use an iframe as a target', (done) ->
         a = new Pomme 'target': 'body', 'scope': 'a'

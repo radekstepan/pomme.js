@@ -1,17 +1,17 @@
 {
-    "name": "pomme",
-    "main": "src/channel.js",
-    "version": "0.0.0",
-    "dependencies": {
-        "lodash/lodash": "*",
-        "timoxley/next-tick": "*"
-    },
-    "scripts": [
-        "src/channel.coffee",
-        "src/constants.coffee",
-        "src/iframe.coffee",
-        "src/router.coffee",
-        
-        "src/template.eco"
-    ]
+  "name": "pomme",
+  "main": "src/channel.js",
+  "version": "0.0.0",
+  "dependencies": {
+    "lodash/lodash": "*",
+    "timoxley/next-tick": "*"
+  },
+  "scripts": [
+    "src/channel.coffee",
+    "src/constants.coffee",
+    "src/iframe.coffee",
+    "src/router.coffee",
+    "src/template.eco"
+  ],
+  "remotes": []
 }

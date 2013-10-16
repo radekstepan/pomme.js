@@ -6995,6 +6995,9 @@ Channel = (function() {
     if (scope) {
       this.scope = scope;
     }
+    if (!_.isString(this.scope)) {
+      throw 'only strings accepted for a scope';
+    }
     switch (false) {
       case !_.isWindow(target):
         this.window = target;
@@ -7052,7 +7055,7 @@ Channel = (function() {
       JSON.stringify(opts);
     } catch (_error) {
       e = _error;
-      return this.error(e);
+      return this.error('converting circular structure to JSON');
     }
     params = (defunc = function(obj) {
       var id;
@@ -7083,6 +7086,9 @@ Channel = (function() {
   Channel.prototype.postMessage = function(message, force) {
     if (force == null) {
       force = false;
+    }
+    if (this.disposed) {
+      return;
     }
     if (!force && !this.ready) {
       return this.pending.push(message);
@@ -7129,6 +7135,9 @@ Channel = (function() {
   };
 
   Channel.prototype.on = function(method, cb) {
+    if (this.disposed) {
+      return;
+    }
     if (!method || !_.isString(method)) {
       return this.error('`method` must be string');
     }
@@ -7185,6 +7194,10 @@ Channel = (function() {
 
   Channel.prototype.dispose = function() {
     var key, val, _ref1, _ref2;
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
     if ((_ref1 = this.iframe) != null) {
       _ref1.dispose();
     }
@@ -7233,9 +7246,9 @@ module.exports = {
 require.register("pomme/src/iframe.js", function(exports, require, module){
 var constants, iFrame, _;
 
-constants = require('./constants');
-
 _ = require('lodash');
+
+constants = require('./constants');
 
 iFrame = (function() {
   function iFrame(_arg) {
@@ -7247,9 +7260,9 @@ iFrame = (function() {
       return this.error('target selector not found');
     }
     name = constants.iframe + id || +(new Date);
-    this.self = document.createElement('iframe');
-    this.self.name = name;
-    document.querySelector(target).appendChild(this.self);
+    this.node = document.createElement('iframe');
+    this.node.name = name;
+    document.querySelector(target).appendChild(this.node);
     if (template == null) {
       template = require('./template');
     }
@@ -7261,9 +7274,9 @@ iFrame = (function() {
     }))) {
       return this.error('template did not return a string');
     }
-    this.self.contentWindow.document.open();
-    this.self.contentWindow.document.write(html);
-    this.self.contentWindow.document.close();
+    this.node.contentWindow.document.open();
+    this.node.contentWindow.document.write(html);
+    this.node.contentWindow.document.close();
     this.el = window.frames[name];
   }
 
@@ -7273,9 +7286,21 @@ iFrame = (function() {
   };
 
   iFrame.prototype.dispose = function() {
-    var _ref;
-    if ((_ref = this.self) != null) {
-      _ref.remove();
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    if (this.node) {
+      switch (false) {
+        case !_.isFunction(this.node.remove):
+          this.node.remove();
+          break;
+        case !_.isFunction(this.node.removeNode):
+          this.node.removeNode(true);
+          break;
+        case !this.node.parentNode:
+          this.node.parentNode.removeChild(this.node);
+      }
     }
     return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
   };
@@ -7306,17 +7331,19 @@ Router = (function() {
   Router.prototype.transactions = {};
 
   Router.prototype.register = function(win, scope, handler) {
-    var _base;
+    var route, _base, _i, _len, _ref;
     if (scope == null) {
       scope = '';
     }
-    if (_.find(this.table[scope], {
-      win: win
-    })) {
-      throw "a channel is already bound to the same window under `" + scope + "`";
-    }
     if ((_base = this.table)[scope] == null) {
       _base[scope] = [];
+    }
+    _ref = this.table[scope];
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      route = _ref[_i];
+      if (route.win === win) {
+        throw "a channel is already bound to the same window under `" + scope + "`";
+      }
     }
     return this.table[scope].push({
       win: win,
@@ -7325,7 +7352,7 @@ Router = (function() {
   };
 
   Router.prototype.route = function(event) {
-    var data, method, route, scope, _ref, _ref1;
+    var data, method, route, scope, _i, _len, _ref, _ref1, _ref2;
     data = null;
     try {
       data = JSON.parse(event.data);
@@ -7342,10 +7369,12 @@ Router = (function() {
       }
     }
     if (method && (this.table[scope] != null)) {
-      if (route = _.find(this.table[scope], {
-        'win': event.source
-      })) {
-        return route.handler(method, data.params);
+      _ref2 = this.table[scope];
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        route = _ref2[_i];
+        if (route.win === event.source) {
+          return route.handler(method, data.params);
+        }
       }
     }
   };
