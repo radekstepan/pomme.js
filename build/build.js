@@ -7073,10 +7073,11 @@ Channel = (function() {
         }
       }
     })(opts);
-    return this.postMessage({
+    this.postMessage({
       'method': this.scopeMethod(method),
       params: params
     });
+    return this;
   };
 
   Channel.prototype.postMessage = function(message, force) {

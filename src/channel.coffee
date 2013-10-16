@@ -111,6 +111,8 @@ class Channel
 
         @postMessage { 'method': @scopeMethod(method), params }
 
+        @
+
     # Post or enqueue messages to be posted.
     postMessage: (message, force=no) ->
         # Enqueue if we are not pinging or are not ready.

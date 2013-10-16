@@ -306,4 +306,37 @@ suite 'pomme.js', ->
             do a.dispose
             do done
 
+    test 'should allow chaining of trigger', (done) ->
+        channel = new Pomme 'target': 'body'
+
+        i = 0
+        channel.on 'response', ->
+            i++
+            if i is 2
+                do channel.dispose
+                do done
+
+        channel
+        .trigger('eval', "channel.trigger('response')")
+        .trigger('eval', "channel.trigger('response')")
+
+    test 'should allow chaining of on', (done) ->
+        channel = new Pomme 'target': 'body'
+
+        i = 0
+        handle = ->
+            i++
+            if i is 2
+                do channel.dispose
+                do done
+
+        channel
+        .on('a', handle)
+        .on('b', handle)
+
+        channel.trigger 'eval', """
+        channel.trigger('a');
+        channel.trigger('b');
+        """
+
 do mocha.run
