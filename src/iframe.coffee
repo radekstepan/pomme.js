@@ -8,13 +8,13 @@ class iFrame
         # Good selector?
         try document.querySelector target
         catch
-            return @error 'target selector cannot be found'
+            return @error 'target selector not found'
 
-        @name = constants.iframe + id or + new Date
+        name = constants.iframe + id or + new Date
 
         # Create the iframe.
         @self = document.createElement 'iframe'
-        @self.name = @name
+        @self.name = name
         document.querySelector(target).appendChild @self
 
         # Use a custom template or go spec one?
@@ -31,7 +31,7 @@ class iFrame
         do @self.contentWindow.document.close
 
         # Refer to the iframe's document.
-        @el = window.frames[@name]
+        @el = window.frames[name]
 
     error: (message) ->
         do @dispose

@@ -6980,8 +6980,6 @@ constants = require('./constants');
 Channel = (function() {
   Channel.prototype.ready = false;
 
-  Channel.prototype.origin = '*';
-
   Channel.prototype.scope = 'testScope';
 
   function Channel(opts) {
@@ -6997,23 +6995,28 @@ Channel = (function() {
     if (scope) {
       this.scope = scope;
     }
-    if (target) {
-      this.window = (this.iframe = new iFrame({
-        id: this.id,
-        target: target,
-        scope: this.scope,
-        template: template
-      })).el;
-    } else {
-      this.window = window.parent;
-      this.child = true;
+    switch (false) {
+      case !_.isWindow(target):
+        this.window = target;
+        break;
+      case !target:
+        this.window = (this.iframe = new iFrame({
+          id: this.id,
+          target: target,
+          scope: this.scope,
+          template: template
+        })).el;
+        break;
+      default:
+        this.window = window.parent;
+        this.child = true;
     }
     if (window === this.window) {
       throw 'child and parent windows cannot be one and the same';
     }
     this.handlers = {};
     this.pending = [];
-    router.register(this.window, this.origin, this.scope, this.onMessage);
+    router.register(this.window, this.scope, this.onMessage);
     this.on(constants.ready, this.onReady);
     nextTick(function() {
       return _this.postMessage({
@@ -7084,10 +7087,10 @@ Channel = (function() {
       return this.pending.push(message);
     }
     message[constants.postmessage] = true;
-    return this.window.postMessage(JSON.stringify(message), this.origin);
+    return this.window.postMessage(JSON.stringify(message), '*');
   };
 
-  Channel.prototype.onMessage = function(origin, method, params) {
+  Channel.prototype.onMessage = function(method, params) {
     var err, handler, makefunc,
       _this = this;
     params = (makefunc = function(obj) {
@@ -7203,6 +7206,19 @@ Channel = (function() {
 
 module.exports = Channel;
 
+_.mixin((function() {
+  return {
+    'isWindow': function(obj) {
+      switch (false) {
+        case !!_.isObject(obj):
+          return false;
+        default:
+          return obj.window === obj;
+      }
+    }
+  };
+})());
+
 });
 require.register("pomme/src/constants.js", function(exports, require, module){
 module.exports = {
@@ -7222,16 +7238,16 @@ _ = require('lodash');
 
 iFrame = (function() {
   function iFrame(_arg) {
-    var html, id, scope, target, template;
+    var html, id, name, scope, target, template;
     id = _arg.id, target = _arg.target, scope = _arg.scope, template = _arg.template;
     try {
       document.querySelector(target);
     } catch (_error) {
-      return this.error('target selector cannot be found');
+      return this.error('target selector not found');
     }
-    this.name = constants.iframe + id || +(new Date);
+    name = constants.iframe + id || +(new Date);
     this.self = document.createElement('iframe');
-    this.self.name = this.name;
+    this.self.name = name;
     document.querySelector(target).appendChild(this.self);
     if (template == null) {
       template = require('./template');
@@ -7247,7 +7263,7 @@ iFrame = (function() {
     this.self.contentWindow.document.open();
     this.self.contentWindow.document.write(html);
     this.self.contentWindow.document.close();
-    this.el = window.frames[this.name];
+    this.el = window.frames[name];
   }
 
   iFrame.prototype.error = function(message) {
@@ -7288,61 +7304,27 @@ Router = (function() {
 
   Router.prototype.transactions = {};
 
-  Router.prototype.register = function(win, origin, scope, handler) {
-    var exists, key, value, _base, _base1, _ref, _ref1, _ref2;
+  Router.prototype.register = function(win, scope, handler) {
+    var _base;
     if (scope == null) {
       scope = '';
     }
-    exists = false;
-    if (origin === '*') {
-      _ref = this.table;
-      for (key in _ref) {
-        value = _ref[key];
-        if (_.has(this.table, key) && key !== '*') {
-          if (_.find(value[scope], {
-            win: win
-          })) {
-            break;
-          }
-        }
-      }
-    } else {
-      if (!(exists = (((_ref1 = this.table['*']) != null ? _ref1[scope] : void 0) != null) && hasWin(_.find(this.table['*'][scope], {
-        win: win
-      })))) {
-        if (((_ref2 = this.table[origin]) != null ? _ref2[scope] : void 0) != null) {
-          exists = _.find(this.table[origin][scope], {
-            win: win
-          });
-        }
-      }
+    if (_.find(this.table[scope], {
+      win: win
+    })) {
+      throw "a channel is already bound to the same window under `" + scope + "`";
     }
-    if (exists) {
-      throw "A channel is already bound to the same window which overlaps with origin `" + origin + "` and has scope `" + scope + "`";
+    if ((_base = this.table)[scope] == null) {
+      _base[scope] = [];
     }
-    if ((_base = this.table)[origin] == null) {
-      _base[origin] = {};
-    }
-    if ((_base1 = this.table[origin])[scope] == null) {
-      _base1[scope] = [];
-    }
-    return this.table[origin][scope].push({
+    return this.table[scope].push({
       win: win,
       handler: handler
     });
   };
 
-  Router.prototype.remove = function(win, origin, scope) {
-    this.table[origin][scope] = _.find(this.table[origin][scope], {
-      win: win
-    });
-    if (!this.table[origin][scope].length) {
-      return delete this.table[origin][scope];
-    }
-  };
-
   Router.prototype.route = function(event) {
-    var data, method, origin, route, scope, _i, _len, _ref, _ref1, _ref2, _ref3;
+    var data, method, route, scope, _ref, _ref1;
     data = null;
     try {
       data = JSON.parse(event.data);
@@ -7358,17 +7340,11 @@ Router = (function() {
         method = data.method;
       }
     }
-    if (method) {
-      _ref2 = [event.origin, '*'];
-      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-        origin = _ref2[_i];
-        if (((_ref3 = this.table[origin]) != null ? _ref3[scope] : void 0) != null) {
-          if (route = _.find(this.table[origin][scope], {
-            'win': event.source
-          })) {
-            return route.handler(origin, method, data.params);
-          }
-        }
+    if (method && (this.table[scope] != null)) {
+      if (route = _.find(this.table[scope], {
+        'win': event.source
+      })) {
+        return route.handler(method, data.params);
       }
     }
   };
@@ -7400,7 +7376,7 @@ FnID = (function() {
 })();
 
 if (!('postMessage' in window)) {
-  throw 'Samskipti cannot run in this browser, no postMessage';
+  throw 'cannot run in this browser, no postMessage';
 }
 
 router = new Router();

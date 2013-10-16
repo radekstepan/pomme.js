@@ -246,7 +246,7 @@ suite 'pomme.js', ->
         try
             channel = new Pomme 'target': 666
         catch err
-            assert.equal do err.toString, 'target selector cannot be found'
+            assert.equal do err.toString, 'target selector not found'
             do done
 
     test 'should throw when template is not a function', (done) ->
@@ -272,5 +272,38 @@ suite 'pomme.js', ->
             do done
 
         channel.trigger 'eval', "throw 'ok'"
+
+    test 'should be able to use an iframe as a target', (done) ->
+        a = new Pomme 'target': 'body', 'scope': 'a'
+        b = new Pomme 'target': a.window, 'scope': 'b'
+
+        a.on 'response', (res) ->
+            assert false
+
+        b.on 'response', (res) ->
+            assert.equal res, 'ok'
+            do a.dispose
+            do b.dispose
+            do done
+
+        a.trigger 'eval', """
+        var test = new Pomme({'scope': 'b'});
+        test.on('query', function() {
+            test.trigger('response', 'ok');
+        });
+        """
+
+        a.trigger('query')
+        b.trigger('query')
+
+    test 'should throw when registering the same window and scope', (done) ->
+        a = new Pomme 'target': 'body', 'scope': 'a'
+
+        try
+            b = new Pomme 'target': a.window, 'scope': 'a'
+        catch err
+            assert.equal do err.toString, 'a channel is already bound to the same window under `a`'
+            do a.dispose
+            do done
 
 do mocha.run

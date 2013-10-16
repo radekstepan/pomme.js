@@ -12,29 +12,13 @@ class Router
     transactions: {}
 
     # Add a channel to routing table.
-    register: (win, origin, scope='', handler) ->
-        # does she exist?
-        exists = no
-        if origin is '*'
-            # we must check all other origins, sadly.
-            for key, value of @table when _.has(@table, key) and key isnt '*'
-                break if _.find(value[scope], { win })
-        
-        else
-            unless exists = @table['*']?[scope]? and hasWin _.find(@table['*'][scope], { win })
-                exists = _.find(@table[origin][scope], { win }) if @table[origin]?[scope]?
-
-        throw "A channel is already bound to the same window which overlaps with origin `#{origin}` and has scope `#{scope}`" if exists
+    register: (win, scope='', handler) ->
+        if _.find(@table[scope], { win })
+            throw "a channel is already bound to the same window under `#{scope}`"
         
         # Register this origin & scope.
-        @table[origin] ?= {}
-        @table[origin][scope] ?= []
-        @table[origin][scope].push { win, handler }
-
-    # Remove a channel.
-    remove: (win, origin, scope) ->
-        @table[origin][scope] = _.find @table[origin][scope], { win }
-        delete @table[origin][scope] unless @table[origin][scope].length
+        @table[scope] ?= []
+        @table[scope].push { win, handler }
 
     # Route a message.
     route: (event) =>
@@ -53,11 +37,9 @@ class Router
             # Unscoped?
             method = data.method unless scope and method
         
-        # A URI/whatever based origin.
-        if method
-            for origin in [ event.origin, '*' ] when @table[origin]?[scope]?
-                if route = _.find(@table[origin][scope], { 'win': event.source })
-                    return route.handler(origin, method, data.params)
+        if method and @table[scope]?
+            if route = _.find(@table[scope], { 'win': event.source })
+                return route.handler(method, data.params)
 
 
 # ID generators.
@@ -74,7 +56,7 @@ class FnID
     constructor: -> @id = constants.function + FnID::_id++
 
 # Browser capabilities check
-throw ('Samskipti cannot run in this browser, no postMessage') unless 'postMessage' of window
+throw 'cannot run in this browser, no postMessage' unless 'postMessage' of window
 
 # Everybody use this one.
 router = new Router()

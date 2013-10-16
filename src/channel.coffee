@@ -13,10 +13,6 @@ class Channel
     # Are we ready yet? When set to false we will block & queue outbound messages.
     ready: no
 
-    # Specifies what the origin of the other `window` must be for the event to be  dispatched.
-    #  Either use '*' (indicating no preference) or a URI.
-    origin: '*'
-
     # Scope is prepended to message names. Windows of a single channel must agree upon scope.
     scope: 'testScope'
 
@@ -33,14 +29,19 @@ class Channel
         # Which scope to use?
         @scope = scope if scope
 
-        # Parent or child?
-        if target
-            @window = (@iframe = new iFrame({ @id, target, @scope, template })).el
-        else
-            @window = window.parent
-            @child = yes
+        switch
+            # Parent; existing window.
+            when _.isWindow target
+                @window = target
+            # Parrent; create iframe.
+            when target
+                @window = (@iframe = new iFrame({ @id, target, @scope, template })).el
+            # Child; point to parent.
+            else
+                @window = window.parent
+                @child = yes
 
-        # Make sure we do not communicate with ourselves.
+        # Echo chamber not allowed.
         throw 'child and parent windows cannot be one and the same' if window is @window
 
         # Method names to message handlers.
@@ -50,7 +51,7 @@ class Channel
         @pending = []
 
         # Register channel with the router.
-        router.register @window, @origin, @scope, @onMessage
+        router.register @window, @scope, @onMessage
 
         # Be ready when we are ready...
         @on constants.ready, @onReady
@@ -119,10 +120,10 @@ class Channel
         message[constants.postmessage] = yes
 
         # Call the other window.
-        @window.postMessage JSON.stringify(message), @origin
+        @window.postMessage JSON.stringify(message), '*'
 
     # On an incoming message.
-    onMessage: (origin, method, params) =>
+    onMessage: (method, params) =>
         # Form function callbacks on our end from passed params.
         params = (makefunc = (obj) =>
             # Iterate over it.
@@ -223,3 +224,12 @@ class Channel
         Object.freeze? @
 
 module.exports = Channel
+
+# Extend lodash.
+_.mixin do ->
+    'isWindow': (obj) ->
+        switch
+            when not _.isObject obj
+                no
+            else
+                obj.window is obj

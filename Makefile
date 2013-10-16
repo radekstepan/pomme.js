@@ -5,6 +5,6 @@ watch:
 	watch -n 1 -c ./node_modules/.bin/apps-b . ./build/
 
 serve:
-	python -m SimpleHTTPServer 6200
+	python -m SimpleHTTPServer 2000
 
 .PHONY: build
