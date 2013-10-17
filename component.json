@@ -1,18 +1,17 @@
 {
-  "name": "pomme",
-  "main": "src/channel.js",
-  "version": "0.0.0",
-  "dependencies": {
-    "lodash/lodash": "*",
-    "timoxley/next-tick": "*",
-    "radekstepan/cryo": "*"
-  },
-  "scripts": [
-    "src/channel.coffee",
-    "src/constants.coffee",
-    "src/iframe.coffee",
-    "src/router.coffee",
-    "src/template.eco"
-  ],
-  "remotes": []
+    "name": "pomme",
+    "main": "src/channel.js",
+    "version": "0.1.0",
+    "dependencies": {
+        "lodash/lodash": "*",
+        "timoxley/next-tick": "*",
+        "radekstepan/cryo": "*"
+    },
+    "scripts": [
+        "src/channel.coffee",
+        "src/constants.coffee",
+        "src/iframe.coffee",
+        "src/router.coffee",
+        "src/template.eco"
+    ]
 }
