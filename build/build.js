@@ -7164,7 +7164,7 @@ require.register("radekstepan-cryo/lib/cryo.js", function(exports, require, modu
 })();
 
 });
-require.register("pomme/src/channel.js", function(exports, require, module){
+require.register("pomme.js/src/channel.js", function(exports, require, module){
 var ChanID, Channel, Cryo, FnID, constants, iFrame, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
@@ -7438,7 +7438,7 @@ _.mixin((function() {
 })());
 
 });
-require.register("pomme/src/constants.js", function(exports, require, module){
+require.register("pomme.js/src/constants.js", function(exports, require, module){
 module.exports = {
   'postmessage': '__pomme__',
   'function': '__function::',
@@ -7447,7 +7447,7 @@ module.exports = {
 };
 
 });
-require.register("pomme/src/iframe.js", function(exports, require, module){
+require.register("pomme.js/src/iframe.js", function(exports, require, module){
 var constants, iFrame, _;
 
 _ = require('lodash');
@@ -7516,7 +7516,7 @@ iFrame = (function() {
 module.exports = iFrame;
 
 });
-require.register("pomme/src/router.js", function(exports, require, module){
+require.register("pomme.js/src/router.js", function(exports, require, module){
 var ChanID, Cryo, FnID, Router, constants, router, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
@@ -7632,7 +7632,7 @@ module.exports = {
 };
 
 });
-require.register("pomme/src/template.js", function(exports, require, module){
+require.register("pomme.js/src/template.js", function(exports, require, module){
 module.exports = function(__obj) {
   if (!__obj) __obj = {};
   var __out = [], __capture = function(callback) {
@@ -7672,7 +7672,7 @@ module.exports = function(__obj) {
   }
   (function() {
     (function() {
-      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Pomme = require(\'pomme\');\n    \n    var channel = new Pomme({\n        \'scope\': \'');
+      __out.push('<script src="assets/build.js"></script>\n<script>\n(function() {\n    var Pomme = require(\'pomme.js\');\n    \n    var channel = new Pomme({\n        \'scope\': \'');
     
       __out.push(__sanitize(this.scope));
     
@@ -7688,15 +7688,15 @@ module.exports = function(__obj) {
 
 
 
-require.alias("lodash-lodash/index.js", "pomme/deps/lodash/index.js");
-require.alias("lodash-lodash/dist/lodash.compat.js", "pomme/deps/lodash/dist/lodash.compat.js");
+require.alias("lodash-lodash/index.js", "pomme.js/deps/lodash/index.js");
+require.alias("lodash-lodash/dist/lodash.compat.js", "pomme.js/deps/lodash/dist/lodash.compat.js");
 require.alias("lodash-lodash/index.js", "lodash/index.js");
 
-require.alias("timoxley-next-tick/index.js", "pomme/deps/next-tick/index.js");
+require.alias("timoxley-next-tick/index.js", "pomme.js/deps/next-tick/index.js");
 require.alias("timoxley-next-tick/index.js", "next-tick/index.js");
 
-require.alias("radekstepan-cryo/lib/cryo.js", "pomme/deps/cryo/lib/cryo.js");
-require.alias("radekstepan-cryo/lib/cryo.js", "pomme/deps/cryo/index.js");
+require.alias("radekstepan-cryo/lib/cryo.js", "pomme.js/deps/cryo/lib/cryo.js");
+require.alias("radekstepan-cryo/lib/cryo.js", "pomme.js/deps/cryo/index.js");
 require.alias("radekstepan-cryo/lib/cryo.js", "cryo/index.js");
 require.alias("radekstepan-cryo/lib/cryo.js", "radekstepan-cryo/index.js");
-require.alias("pomme/src/channel.js", "pomme/index.js");
+require.alias("pomme.js/src/channel.js", "pomme.js/index.js");

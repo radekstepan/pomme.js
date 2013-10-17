@@ -1,5 +1,6 @@
 {
-    "name": "pomme",
+    "name": "pomme.js",
+    "repo": "radekstepan/pomme.js",
     "main": "src/channel.js",
     "version": "0.1.0",
     "dependencies": {
@@ -8,6 +9,9 @@
         "radekstepan/cryo": "*"
     },
     "scripts": [
+        "build/build.js"
+    ],
+    "apps-b": [
         "src/channel.coffee",
         "src/constants.coffee",
         "src/iframe.coffee",

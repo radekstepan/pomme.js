@@ -1,6 +1,6 @@
 _ = require 'lodash'
 
-Pomme = require 'pomme'
+Pomme = require 'pomme.js'
 
 suite 'pomme.js', ->
 
@@ -23,7 +23,7 @@ suite 'pomme.js', ->
                 <script src="assets/build.js"></script>
                 <script>
                 (function() {
-                    var Pomme = require('pomme');
+                    var Pomme = require('pomme.js');
 
                     var channel = new Pomme();
 
@@ -75,7 +75,7 @@ suite 'pomme.js', ->
                 <script src="assets/build.js"></script>
                 <script>
                 (function() {
-                    var Pomme = require('pomme');
+                    var Pomme = require('pomme.js');
                     
                     var channel = new Pomme();
                     
@@ -99,7 +99,7 @@ suite 'pomme.js', ->
                 <script src="assets/build.js"></script>
                 <script>
                 (function() {
-                    var Pomme = require('pomme');
+                    var Pomme = require('pomme.js');
                     
                     var channel = new Pomme();
 
@@ -124,7 +124,7 @@ suite 'pomme.js', ->
                 <script src="assets/build.js"></script>
                 <script>
                 (function() {
-                    var Pomme = require('pomme');
+                    var Pomme = require('pomme.js');
                     
                     var channel = new Pomme();
                     
