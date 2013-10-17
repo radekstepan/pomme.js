@@ -6962,14 +6962,218 @@ else if (typeof window == 'undefined' || window.ActiveXObject || !window.postMes
 }
 
 });
+require.register("radekstepan-cryo/lib/cryo.js", function(exports, require, module){
+/**
+ * JSON + Object references wrapper
+ *
+ * @author Hunter Loftis <hunter@skookum.com>
+ * @license The MIT license.
+ * @copyright Copyright (c) 2010 Skookum, skookum.com
+ */
+
+;(function() {
+
+  var CONTAINER_TYPES = 'object array date function'.split(' ');
+
+  var REFERENCE_FLAG = '_CRYO_REF_';
+  var INFINITY_FLAG = '_CRYO_INFINITY_';
+  var FUNCTION_FLAG = '_CRYO_FUNCTION_';
+  var UNDEFINED_FLAG = '_CRYO_UNDEFINED_';
+  var DATE_FLAG = '_CRYO_DATE_';
+
+  var OBJECT_FLAG = '_CRYO_OBJECT_';
+  var ARRAY_FLAG = '_CRYO_ARRAY_';
+
+  function typeOf(item) {
+    if (typeof item === 'object') {
+      if (item === null) return 'null';
+      if (item && item.nodeType === 1) return 'dom';
+      if (item instanceof Array) return 'array';
+      if (item instanceof Date) return 'date';
+      return 'object';
+    }
+    return typeof item;
+  }
+
+  function stringify(item) {
+    var references = [];
+    var root = cloneWithReferences(item, references);
+
+    return JSON.stringify({
+      root: root,
+      references: references
+    });
+  }
+
+  function cloneWithReferences(item, references, savedItems) {
+    savedItems = savedItems || [];
+    var type = typeOf(item);
+
+    // can this object contain its own properties?
+    if (CONTAINER_TYPES.indexOf(type) !== -1) {
+      var referenceIndex = savedItems.indexOf(item);
+      // do we need to store a new reference to this object?
+      if (referenceIndex === -1) {
+        var clone = {};
+        for (var key in item) {
+          if (item.hasOwnProperty(key)) {
+            clone[key] = cloneWithReferences(item[key], references, savedItems);
+          }
+        }
+        referenceIndex = references.push({
+          contents: clone,
+          value: wrapConstructor(item)
+        }) - 1;
+        savedItems[referenceIndex] = item;
+      }
+
+      // return something like _CRYO_REF_22
+      return REFERENCE_FLAG + referenceIndex;
+    }
+
+    // return a non-container object
+    return wrap(item);
+  }
+
+  function parse(string) {
+    var json = JSON.parse(string);
+
+    return rebuildFromReferences(json.root, json.references);
+  }
+
+  function rebuildFromReferences(item, references, restoredItems) {
+    restoredItems = restoredItems || [];
+    if (starts(item, REFERENCE_FLAG)) {
+      var referenceIndex = parseInt(item.slice(REFERENCE_FLAG.length), 10);
+      if (!restoredItems.hasOwnProperty(referenceIndex)) {
+        var ref = references[referenceIndex];
+        var container = unwrapConstructor(ref.value);
+        var contents = ref.contents;
+        for (var key in contents) {
+          container[key] = rebuildFromReferences(contents[key], references, restoredItems);
+        }
+        restoredItems[referenceIndex] = container;
+      }
+      return restoredItems[referenceIndex];
+    }
+    return unwrap(item);
+  }
+
+  function wrap(item) {
+    var type = typeOf(item);
+    if (type === 'undefined') return UNDEFINED_FLAG;
+    if (type === 'function') return FUNCTION_FLAG + item.toString();
+    if (type === 'date') return DATE_FLAG + item.getTime();
+    if (item === Infinity) return INFINITY_FLAG;
+    if (type === 'dom') return undefined;
+    return item;
+  }
+
+  function wrapConstructor(item) {
+    var type = typeOf(item);
+    if (type === 'function' || type === 'date') return wrap(item);
+    if (type === 'object') return OBJECT_FLAG;
+    if (type === 'array') return ARRAY_FLAG;
+    return item;
+  }
+
+  function unwrapConstructor(val) {
+    if (typeOf(val) === 'string') {
+      if (val === UNDEFINED_FLAG) return undefined;
+      if (starts(val, FUNCTION_FLAG)) {
+        var fn = val.slice(FUNCTION_FLAG.length);
+        var argStart = fn.indexOf('(') + 1;
+        var argEnd = fn.indexOf(')', argStart);
+        var args = fn.slice(argStart, argEnd);
+        var bodyStart = fn.indexOf('{') + 1;
+        var bodyEnd = fn.lastIndexOf('}') - 1;
+        var body = fn.slice(bodyStart, bodyEnd);
+        return new Function(args, body);
+      }
+      if (starts(val, DATE_FLAG)) {
+        var dateNum = parseInt(val.slice(DATE_FLAG.length), 10);
+        return new Date(dateNum);
+      }
+      if (starts(val, OBJECT_FLAG)) {
+        return {};
+      }
+      if (starts(val, ARRAY_FLAG)) {
+        return [];
+      }
+      if (val === INFINITY_FLAG) return Infinity;
+    }
+    return val;
+  }
+
+  function unwrap(val) {
+    if (typeOf(val) === 'string') {
+      if (val === UNDEFINED_FLAG) return undefined;
+      if (starts(val, FUNCTION_FLAG)) {
+        var fn = val.slice(FUNCTION_FLAG.length);
+        var argStart = fn.indexOf('(') + 1;
+        var argEnd = fn.indexOf(')', argStart);
+        var args = fn.slice(argStart, argEnd);
+        var bodyStart = fn.indexOf('{') + 1;
+        var bodyEnd = fn.lastIndexOf('}') - 1;
+        var body = fn.slice(bodyStart, bodyEnd);
+        return new Function(args, body);
+      }
+      if (starts(val, DATE_FLAG)) {
+        var dateNum = parseInt(val.slice(DATE_FLAG.length), 10);
+        return new Date(dateNum);
+      }
+      if (val === INFINITY_FLAG) return Infinity;
+    }
+    return val;
+  }
+
+  function starts(string, prefix) {
+    return typeOf(string) === 'string' && string.slice(0, prefix.length) === prefix;
+  }
+
+  function isNumber(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+  }
+
+  // Exported object
+  var Cryo = {
+    stringify: stringify,
+    parse: parse
+  };
+
+  // global on server, window in browser
+  var root = this;
+
+  // AMD / RequireJS
+  if (typeof define !== 'undefined' && define.amd) {
+    define('Cryo', [], function () {
+      return Cryo;
+    });
+  }
+
+  // node.js
+  else if (typeof module !== 'undefined' && module.exports) {
+    module.exports = Cryo;
+  }
+
+  // included directly via <script> tag
+  else {
+    root.Cryo = Cryo;
+  }
+
+})();
+
+});
 require.register("pomme/src/channel.js", function(exports, require, module){
-var ChanID, Channel, FnID, constants, iFrame, nextTick, router, _, _ref,
+var ChanID, Channel, Cryo, FnID, constants, iFrame, nextTick, router, _, _ref,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
 _ = require('lodash');
 
 nextTick = require('next-tick');
+
+Cryo = require('cryo');
 
 iFrame = require('./iframe');
 
@@ -7052,10 +7256,10 @@ Channel = (function() {
       _this = this;
     method = arguments[0], opts = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
     try {
-      JSON.stringify(opts);
+      Cryo.stringify(opts);
     } catch (_error) {
       e = _error;
-      return this.error('converting circular structure to JSON');
+      return this.error('cannot convert circular structure');
     }
     params = (defunc = function(obj) {
       var id;
@@ -7094,7 +7298,7 @@ Channel = (function() {
       return this.pending.push(message);
     }
     message[constants.postmessage] = true;
-    return this.window.postMessage(JSON.stringify(message), '*');
+    return this.window.postMessage(Cryo.stringify(message), '*');
   };
 
   Channel.prototype.onMessage = function(method, params) {
@@ -7173,7 +7377,7 @@ Channel = (function() {
     }
     if (!message) {
       try {
-        message = JSON.stringify(err);
+        message = Cryo.stringify(err);
       } catch (_error) {
         message = err.toString();
       }
@@ -7313,11 +7517,13 @@ module.exports = iFrame;
 
 });
 require.register("pomme/src/router.js", function(exports, require, module){
-var ChanID, FnID, Router, constants, router, _,
+var ChanID, Cryo, FnID, Router, constants, router, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 _ = require('lodash');
+
+Cryo = require('cryo');
 
 constants = require('./constants');
 
@@ -7355,7 +7561,7 @@ Router = (function() {
     var data, method, route, scope, _i, _len, _ref, _ref1, _ref2;
     data = null;
     try {
-      data = JSON.parse(event.data);
+      data = Cryo.parse(event.data);
     } catch (_error) {}
     if (!(_.isObject(data) && (_ref = constants.postmessage, __indexOf.call(_.keys(data), _ref) >= 0))) {
       return;
@@ -7481,6 +7687,7 @@ module.exports = function(__obj) {
 });
 
 
+
 require.alias("lodash-lodash/index.js", "pomme/deps/lodash/index.js");
 require.alias("lodash-lodash/dist/lodash.compat.js", "pomme/deps/lodash/dist/lodash.compat.js");
 require.alias("lodash-lodash/index.js", "lodash/index.js");
@@ -7488,4 +7695,8 @@ require.alias("lodash-lodash/index.js", "lodash/index.js");
 require.alias("timoxley-next-tick/index.js", "pomme/deps/next-tick/index.js");
 require.alias("timoxley-next-tick/index.js", "next-tick/index.js");
 
+require.alias("radekstepan-cryo/lib/cryo.js", "pomme/deps/cryo/lib/cryo.js");
+require.alias("radekstepan-cryo/lib/cryo.js", "pomme/deps/cryo/index.js");
+require.alias("radekstepan-cryo/lib/cryo.js", "cryo/index.js");
+require.alias("radekstepan-cryo/lib/cryo.js", "radekstepan-cryo/index.js");
 require.alias("pomme/src/channel.js", "pomme/index.js");

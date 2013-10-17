@@ -2,6 +2,8 @@
 
 JavaScript component for communication between parent and child browser frames using [postMessage](http://devdocs.io/dom/window.postmessage).
 
+![image](https://raw.github.com/radekstepan/pomme.js/master/example.png)
+
 ```bash
 $ npm install
 $ make [build|watch|serve]

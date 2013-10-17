@@ -1,4 +1,5 @@
-_ = require 'lodash'
+_    = require 'lodash'
+Cryo = require 'cryo'
 
 constants = require './constants'
 
@@ -14,7 +15,7 @@ class Router
     # Add a channel to routing table.
     register: (win, scope='', handler) ->
         @table[scope] ?= []
-        
+
         for route in @table[scope] when route.win is win
             throw "a channel is already bound to the same window under `#{scope}`"
         
@@ -24,8 +25,8 @@ class Router
     # Route a message.
     route: (event) =>
         data = null
-        # Only accept "our" messages. What if other libs use JSON too?
-        try data = JSON.parse event.data
+        # Only accept "our" messages.
+        try data = Cryo.parse event.data
 
         # Well formed but not for our app.
         return unless _.isObject(data) and constants.postmessage in _.keys(data)

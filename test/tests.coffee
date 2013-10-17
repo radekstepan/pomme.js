@@ -47,7 +47,7 @@ suite 'pomme.js', ->
         obj.key = obj
 
         channel.on 'error', (err) ->
-            assert.equal err, 'converting circular structure to JSON'
+            assert.equal err, 'cannot convert circular structure'
 
         channel.trigger 'fn', obj
 
@@ -88,7 +88,7 @@ suite 'pomme.js', ->
             """
 
         channel.on 'error', (err) ->
-            assert.equal err, 'converting circular structure to JSON'
+            assert.equal err, 'cannot convert circular structure'
             do channel.dispose
             do done
 

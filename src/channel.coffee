@@ -1,5 +1,6 @@
 _        = require 'lodash'
 nextTick = require 'next-tick'
+Cryo     = require 'cryo'
 
 iFrame = require './iframe'
 
@@ -85,10 +86,9 @@ class Channel
     trigger: (method, opts...) ->
         # Is this circular?
         try
-            JSON.stringify opts
+            Cryo.stringify opts
         catch e
-            # Standardize; FF throws 'cyclic object value'
-            return @error 'converting circular structure to JSON'
+            return @error 'cannot convert circular structure'
 
         # Serialize the opts creating function callbacks when needed.
         params = (defunc = (obj) =>
@@ -127,7 +127,7 @@ class Channel
         message[constants.postmessage] = yes
         
         # Call the other window.
-        @window.postMessage JSON.stringify(message), '*'
+        @window.postMessage Cryo.stringify(message), '*'
 
     # On an incoming message.
     onMessage: (method, params) =>
@@ -171,7 +171,7 @@ class Channel
     # Register a method handler. One window saying what to do on receiving msg.
     on: (method, cb) ->
         return if @disposed
-        
+
         return @error '`method` must be string' if not method or not _.isString method
         return @error 'callback missing' if not cb or not _.isFunction cb
         return @error "`#{method}` is already bound" if @handlers[method]
@@ -200,7 +200,7 @@ class Channel
 
         unless message
             try
-                message = JSON.stringify err
+                message = Cryo.stringify err
             catch
                 message = do err.toString
 
