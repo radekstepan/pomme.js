@@ -20,7 +20,7 @@ You can see an example in `/test/tests.coffee`.
   <dd>Scope is an identifier used by a router to work out how to route messages. It is not strictly required as when you only have 1 parent-child pair, there isn't much guesswork involved...</dd>
 
   <dt>target (parent)</dt>
-  <dd>This will be the place where your iframe will be rendered. Pass a string selector that works with <code>document.querySelector</code> or an instance of `window`.</dd>
+  <dd>This will be the place where your iframe will be rendered. Pass a string selector that works with <code>document.querySelector</code> or an instance of <code>window</code>.</dd>
 
   <dt>template (parent)</dt>
   <dd>The value here is a function being passed abovementioned <code>scope</code>. This function should return an <strong>html string</strong> that will be injected into the child iframe. It needs to setup the comms from the other end.</dd>
@@ -28,9 +28,9 @@ You can see an example in `/test/tests.coffee`.
 
 ```javascript
 // wherever this is served from
-var Pomme = require('pomme');
+var Pomme = require('pomme.js');
 // Probably needs some params, see above.
-var channel = new Pomme();
+var channel = new Pomme({});
 // ...
 ```
 
@@ -86,4 +86,9 @@ If you do not specify your own error handler, nothing is thrown/logged.
 
 ##Test it
 
-You can see [Mocha](http://visionmedia.github.io/mocha/) tests by serving the `/test` directory and opening it in the browser.
+You can see [Mocha](http://visionmedia.github.io/mocha/) tests by serving the `/test` directory and opening it in the browser. If you have Python installed then run the following:
+
+```bash
+$ make serve
+# visit http://127.0.0.1:2000/test/
+```
