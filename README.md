@@ -90,5 +90,5 @@ You can see [Mocha](http://visionmedia.github.io/mocha/) tests by serving the `/
 
 ```bash
 $ make serve
-# visit http://127.0.0.1:2000/test/
+# visit http://127.0.0.1:1893/test/
 ```

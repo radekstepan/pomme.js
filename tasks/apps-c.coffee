@@ -70,13 +70,28 @@ commonjs = (grunt, cb) ->
     async.each @files, (file, cb) ->
         sources     = file.src
         destination = path.normalize file.dest
-    
+
+        # Find all index files.
+        rule = /index\.(coffee|js)$/
+        unless (idx = _(sources)
+        .filter((source) ->
+            # Coffee and JS files supported.
+            source.match rule
+        ).sort((a, b) ->
+            score = (input) -> input.split('/').length
+            score(a) - score(b)
+        ).value()).length
+            return cb "Main `#{rule}` file not found"
+
+        # Get the closest index file to the root.
+        main = idx[0]
+
         # For each source.
         async.map sources, (source, cb) ->
             # Find the handler.
             unless handler = handlers[ext = path.extname(source)[1...]] # sans dot
                 return cb "Unrecognized file extension `#{ext}`"
-        
+
             # Run the handler.
             handler source, (err, result) ->
                 return cb err if err
@@ -102,7 +117,7 @@ commonjs = (grunt, cb) ->
             # Expose to the outside world.
             out = moulds.wrapper
                 'package': pkg
-                'main': 'src/index' # TODO: dynamically find or specify through opts
+                'main': main.split('.')[0...-1].join('.')
                 'content': moulds.lines
                     'spaces': 4
                     'lines': content
