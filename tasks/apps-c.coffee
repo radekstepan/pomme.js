@@ -62,8 +62,7 @@ handlers =
         ], cb
 
 commonjs = (grunt, cb) ->
-    # What is the name of the package.
-    pkg = grunt.config.data.pkg.name
+    pkg = grunt.config.data.pkg
 
     # For each in/out config.
     async.each @files, (file, cb) =>
@@ -72,24 +71,34 @@ commonjs = (grunt, cb) ->
 
         # Any opts?
         opts = @options
-            # Find all index files.
-            'main': _(sources)
+            'main': do ->
+                # A) Use the main file in `package.json`.
+                return pkg.main if pkg.main
+
+                # B) Find the index file closest to the root.
+                _(sources)
                 .filter((source) ->
                     # Coffee and JS files supported.
                     source.match /index\.(coffee|js)$/
                 ).sort((a, b) ->
                     score = (input) -> input.split('/').length
                     score(a) - score(b)
-                # And get the closest one to the root
                 ).value()[0]
 
+        # Not null?
         return cb 'Main index file not defined' unless opts.main
+
+        # Does the index file actually exist?
+        return cb "Main index file #{opts.main.bold} does not exist" unless opts.main in sources
+
+        # Say we use this index file.
+        grunt.log.writeln "Using index file #{opts.main.bold}".yellow
 
         # For each source.
         async.map sources, (source, cb) ->
             # Find the handler.
             unless handler = handlers[ext = path.extname(source)[1...]] # sans dot
-                return cb "Unrecognized file extension `#{ext}`"
+                return cb "Unrecognized file extension #{ext.bold}"
 
             # Run the handler.
             handler source, (err, result) ->
@@ -97,7 +106,7 @@ commonjs = (grunt, cb) ->
 
                 # Wrap it in the module registry.
                 cb null, moulds.module
-                    'package': pkg
+                    'package': pkg.name
                     'path': source
                     'script': moulds.lines
                         'spaces': 4
@@ -115,7 +124,7 @@ commonjs = (grunt, cb) ->
 
             # Expose to the outside world.
             out = moulds.wrapper
-                'package': pkg
+                'package': pkg.name
                 'main': opts.main.split('.')[0...-1].join('.')
                 'content': moulds.lines
                     'spaces': 4
@@ -133,12 +142,9 @@ module.exports = (grunt) ->
 
         # Wrapper for error logging.
         cb = (err) ->
-            if err
-                grunt.log.error do err.toString
-                done false
-            else
-                grunt.log.writeln 'Done'
-                do done
+            return do done unless err
+            grunt.log.error (do err.toString).red
+            done false
 
         # Once our builder is ready...
         onReady = =>
