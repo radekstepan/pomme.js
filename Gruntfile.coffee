@@ -8,6 +8,8 @@ module.exports = (grunt) ->
                 # https://github.com/gruntjs/grunt/wiki/Configuring-tasks#globbing-patterns
                 src: [ 'src/**/*.{coffee,js,eco}' ]
                 dest: 'build/app.js'
+                options:
+                    main: 'src/index.js'
 
     grunt.loadTasks('tasks')
 

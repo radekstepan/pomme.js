@@ -53,7 +53,6 @@ handlers =
     eco: (filepath, cb) ->
         async.waterfall [ (cb) ->
             fs.readFile filepath, 'utf8', cb
-
         , (src, cb) ->
             try
                 template = eco.precompile src
@@ -67,24 +66,24 @@ commonjs = (grunt, cb) ->
     pkg = grunt.config.data.pkg.name
 
     # For each in/out config.
-    async.each @files, (file, cb) ->
+    async.each @files, (file, cb) =>
         sources     = file.src
         destination = path.normalize file.dest
 
-        # Find all index files.
-        rule = /index\.(coffee|js)$/
-        unless (idx = _(sources)
-        .filter((source) ->
-            # Coffee and JS files supported.
-            source.match rule
-        ).sort((a, b) ->
-            score = (input) -> input.split('/').length
-            score(a) - score(b)
-        ).value()).length
-            return cb "Main `#{rule}` file not found"
+        # Any opts?
+        opts = @options
+            # Find all index files.
+            'main': _(sources)
+                .filter((source) ->
+                    # Coffee and JS files supported.
+                    source.match /index\.(coffee|js)$/
+                ).sort((a, b) ->
+                    score = (input) -> input.split('/').length
+                    score(a) - score(b)
+                # And get the closest one to the root
+                ).value()[0]
 
-        # Get the closest index file to the root.
-        main = idx[0]
+        return cb 'Main index file not defined' unless opts.main
 
         # For each source.
         async.map sources, (source, cb) ->
@@ -117,7 +116,7 @@ commonjs = (grunt, cb) ->
             # Expose to the outside world.
             out = moulds.wrapper
                 'package': pkg
-                'main': main.split('.')[0...-1].join('.')
+                'main': opts.main.split('.')[0...-1].join('.')
                 'content': moulds.lines
                     'spaces': 4
                     'lines': content
