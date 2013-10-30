@@ -1,0 +1,13 @@
+{
+    "name": "pomme.js",
+    "version": "0.2.0",
+    "dependencies": {
+        "cryo": "git://github.com/radekstepan/cryo.git",
+        "lodash": null
+    },
+    "devDependencies": {
+        "mocha": null,
+        "assert": null,
+        "coffee-script": "http://jashkenas.github.io/coffee-script/extras/coffee-script.js"
+    }
+}

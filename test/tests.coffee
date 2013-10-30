@@ -1,5 +1,3 @@
-_ = require 'lodash'
-
 Pomme = require 'pomme.js'
 
 suite 'pomme.js', ->
@@ -20,7 +18,8 @@ suite 'pomme.js', ->
         channel = new Pomme
             'target': 'body'
             'template': ({ scope }) -> """
-                <script src="assets/build.js"></script>
+                <script src="/vendor/lodash/dist/lodash.min.js"></script>
+                <script src="/build/app.js"></script>
                 <script>
                 (function() {
                     var Pomme = require('pomme.js');
@@ -72,7 +71,8 @@ suite 'pomme.js', ->
         channel = new Pomme
             'target': 'body'
             'template': ({ scope }) -> """
-                <script src="assets/build.js"></script>
+                <script src="/vendor/lodash/dist/lodash.min.js"></script>
+                <script src="/build/app.js"></script>
                 <script>
                 (function() {
                     var Pomme = require('pomme.js');
@@ -96,7 +96,8 @@ suite 'pomme.js', ->
         channel = new Pomme
             'target': 'body'
             'template': ({ scope }) -> """
-                <script src="assets/build.js"></script>
+                <script src="/vendor/lodash/dist/lodash.min.js"></script>
+                <script src="/build/app.js"></script>
                 <script>
                 (function() {
                     var Pomme = require('pomme.js');
@@ -121,7 +122,8 @@ suite 'pomme.js', ->
         channel = new Pomme
             'target': 'body'
             'template': ({ scope }) -> """
-                <script src="assets/build.js"></script>
+                <script src="/vendor/lodash/dist/lodash.min.js"></script>
+                <script src="/build/app.js"></script>
                 <script>
                 (function() {
                     var Pomme = require('pomme.js');

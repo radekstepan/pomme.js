@@ -1,5 +1,3 @@
-_ = require 'lodash'
-
 constants = require './constants'
 
 class iFrame

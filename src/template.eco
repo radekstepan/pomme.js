@@ -1,15 +1,26 @@
-<script src="assets/build.js"></script>
-<script>
-(function() {
-    var Pomme = require('pomme.js');
-    
-    var channel = new Pomme({
-        'scope': '<%= @scope %>'
-    });
-    
-    // By default you can eval code in this context.
-    channel.on('eval', function(code) {
-        eval(code);
-    });
-})();
-</script>
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+
+    <!-- !WARNING following paths only work when running tests -->
+    <script src="/vendor/lodash/dist/lodash.min.js"></script>
+    <script src="/build/app.js"></script>
+</head>
+<body>
+    <script>
+    (function() {
+        var Pomme = require('pomme.js');
+        
+        var channel = new Pomme({
+            'scope': '<%= @scope %>'
+        });
+        
+        // By default you can eval code in this context.
+        channel.on('eval', function(code) {
+            eval(code);
+        });
+    })();
+    </script>
+</body>
+</html>

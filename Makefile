@@ -1,10 +1,14 @@
-build:
-	./node_modules/.bin/apps-b . ./build/
+build: install
+	grunt
+
+install:
+	npm install
+	./node_modules/.bin/bower install
 
 watch:
-	watch -n 1 -c ./node_modules/.bin/apps-b . ./build/
+	watch --color -n 1 make build
 
 serve:
-	python -m SimpleHTTPServer 2000
+	python -m SimpleHTTPServer 1893
 
 .PHONY: build

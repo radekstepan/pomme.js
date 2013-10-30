@@ -2,3 +2,5 @@ node_modules/
 *.log
 components/
 build/build.css
+.build_cache~
+build/*.map

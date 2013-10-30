@@ -978,7 +978,6 @@ module.exports = function(suite){
     context.describe.only = function(title, fn){
       var suite = context.describe(title, fn);
       mocha.grep(suite.fullTitle());
-      return suite;
     };
 
     /**
@@ -1003,7 +1002,6 @@ module.exports = function(suite){
       var test = context.it(title, fn);
       var reString = '^' + utils.escapeRegexp(test.fullTitle()) + '$';
       mocha.grep(new RegExp(reString));
-      return test;
     };
 
     /**
@@ -1833,13 +1831,7 @@ exports = module.exports = Base;
  * Enable coloring by default.
  */
 
-exports.useColors = isatty || (process.env.MOCHA_COLORS !== undefined);
-
-/**
- * Inline diffs instead of +/-
- */
-
-exports.inlineDiffs = false;
+exports.useColors = isatty;
 
 /**
  * Default color map.
@@ -1981,12 +1973,31 @@ exports.list = function(failures){
 
     // actual / expected diff
     if ('string' == typeof actual && 'string' == typeof expected) {
-      fmt = color('error title', '  %s) %s:\n%s') + color('error stack', '\n%s\n');
-      if (exports.inlineDiffs) {
-        msg = inlineDiff(err, escape);
-      } else {
-        msg = unifiedDiff(err, escape);
+      msg = errorDiff(err, 'WordsWithSpace', escape);
+
+      // linenos
+      var lines = msg.split('\n');
+      if (lines.length > 4) {
+        var width = String(lines.length).length;
+        msg = lines.map(function(str, i){
+          return pad(++i, width) + ' |' + ' ' + str;
+        }).join('\n');
       }
+
+      // legend
+      msg = '\n'
+        + color('diff removed', 'actual')
+        + ' '
+        + color('diff added', 'expected')
+        + '\n\n'
+        + msg
+        + '\n';
+
+      // indent
+      msg = msg.replace(/^/gm, '      ');
+
+      fmt = color('error title', '  %s) %s:\n%s')
+        + color('error stack', '\n%s\n');
     }
 
     // indent stack trace without msg
@@ -2122,73 +2133,6 @@ function pad(str, len) {
   return Array(len - str.length + 1).join(' ') + str;
 }
 
-
-/**
- * Returns an inline diff between 2 strings with coloured ANSI output
- *
- * @param {Error} Error with actual/expected
- * @return {String} Diff
- * @api private
- */
-
-function inlineDiff(err, escape) {
-  var msg = errorDiff(err, 'WordsWithSpace', escape);
-
-  // linenos
-  var lines = msg.split('\n');
-  if (lines.length > 4) {
-    var width = String(lines.length).length;
-    msg = lines.map(function(str, i){
-      return pad(++i, width) + ' |' + ' ' + str;
-    }).join('\n');
-  }
-
-  // legend
-  msg = '\n'
-    + color('diff removed', 'actual')
-    + ' '
-    + color('diff added', 'expected')
-    + '\n\n'
-    + msg
-    + '\n';
-
-  // indent
-  msg = msg.replace(/^/gm, '      ');
-  return msg;
-}
-
-/**
- * Returns a unified diff between 2 strings
- *
- * @param {Error} Error with actual/expected
- * @return {String} Diff
- * @api private
- */
-
-function unifiedDiff(err, escape) {
-  var indent = '      ';
-  function cleanUp(line) {
-    if (escape) {
-      line = escapeInvisibles(line);
-    }
-    if (line[0] === '+') return indent + colorLines('diff added', line);
-    if (line[0] === '-') return indent + colorLines('diff removed', line);
-    if (line.match(/\@\@/)) return null;
-    if (line.match(/\\ No newline/)) return null;
-    else return indent + line;
-  }
-  function notBlank(line) {
-    return line != null;
-  }
-  msg = diff.createPatch('string', err.actual, err.expected);
-  var lines = msg.split('\n').splice(4);
-  return '\n      '
-         + colorLines('diff added',   '+ expected') + ' '
-         + colorLines('diff removed', '- actual')
-         + '\n\n'
-         + lines.map(cleanUp).filter(notBlank).join('\n');
-}
-
 /**
  * Return a character diff for `err`.
  *
@@ -2198,26 +2142,17 @@ function unifiedDiff(err, escape) {
  */
 
 function errorDiff(err, type, escape) {
-  var actual   = escape ? escapeInvisibles(err.actual)   : err.actual;
-  var expected = escape ? escapeInvisibles(err.expected) : err.expected;
-  return diff['diff' + type](actual, expected).map(function(str){
+  return diff['diff' + type](err.actual, err.expected).map(function(str){
+    if (escape) {
+      str.value = str.value
+        .replace(/\t/g, '<tab>')
+        .replace(/\r/g, '<CR>')
+        .replace(/\n/g, '<LF>\n');
+    }
     if (str.added) return colorLines('diff added', str.value);
     if (str.removed) return colorLines('diff removed', str.value);
     return str.value;
   }).join('');
-}
-
-/**
- * Returns a string with all invisible characters in plain text
- *
- * @param {String} line
- * @return {String}
- * @api private
- */
-function escapeInvisibles(line) {
-    return line.replace(/\t/g, '<tab>')
-               .replace(/\r/g, '<CR>')
-               .replace(/\n/g, '<LF>\n');
 }
 
 /**
@@ -2724,6 +2659,7 @@ exports.Landing = require('./landing');
 exports.JSONCov = require('./json-cov');
 exports.HTMLCov = require('./html-cov');
 exports.JSONStream = require('./json-stream');
+exports.Teamcity = require('./teamcity');
 
 }); // module: reporters/index.js
 
@@ -3871,6 +3807,75 @@ function title(test) {
 
 }); // module: reporters/tap.js
 
+require.register("reporters/teamcity.js", function(module, exports, require){
+
+/**
+ * Module dependencies.
+ */
+
+var Base = require('./base');
+
+/**
+ * Expose `Teamcity`.
+ */
+
+exports = module.exports = Teamcity;
+
+/**
+ * Initialize a new `Teamcity` reporter.
+ *
+ * @param {Runner} runner
+ * @api public
+ */
+
+function Teamcity(runner) {
+  Base.call(this, runner);
+  var stats = this.stats;
+
+  runner.on('start', function() {
+    console.log("##teamcity[testSuiteStarted name='mocha.suite']");
+  });
+
+  runner.on('test', function(test) {
+    console.log("##teamcity[testStarted name='" + escape(test.fullTitle()) + "']");
+  });
+
+  runner.on('fail', function(test, err) {
+    console.log("##teamcity[testFailed name='" + escape(test.fullTitle()) + "' message='" + escape(err.message) + "']");
+  });
+
+  runner.on('pending', function(test) {
+    console.log("##teamcity[testIgnored name='" + escape(test.fullTitle()) + "' message='pending']");
+  });
+
+  runner.on('test end', function(test) {
+    console.log("##teamcity[testFinished name='" + escape(test.fullTitle()) + "' duration='" + test.duration + "']");
+  });
+
+  runner.on('end', function() {
+    console.log("##teamcity[testSuiteFinished name='mocha.suite' duration='" + stats.duration + "']");
+  });
+}
+
+/**
+ * Escape the given `str`.
+ */
+
+function escape(str) {
+  return str
+    .replace(/\|/g, "||")
+    .replace(/\n/g, "|n")
+    .replace(/\r/g, "|r")
+    .replace(/\[/g, "|[")
+    .replace(/\]/g, "|]")
+    .replace(/\u0085/g, "|x")
+    .replace(/\u2028/g, "|l")
+    .replace(/\u2029/g, "|p")
+    .replace(/'/g, "|'");
+}
+
+}); // module: reporters/teamcity.js
+
 require.register("reporters/xunit.js", function(module, exports, require){
 
 /**
@@ -4397,7 +4402,9 @@ Runner.prototype.checkGlobals = function(test){
   if(this.prevGlobalsLength == globals.length) return;
   this.prevGlobalsLength = globals.length;
 
+  //console.time('filterLeaksTime');
   leaks = filterLeaks(ok, globals);
+  //console.timeEnd('filterLeaksTime');
   this._globals = this._globals.concat(leaks);
 
   if (leaks.length > 1) {

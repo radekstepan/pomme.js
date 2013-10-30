@@ -1,8 +1,6 @@
-_        = require 'lodash'
-nextTick = require 'next-tick'
-Cryo     = require 'cryo'
-
-iFrame = require './iframe'
+iFrame  = require './iframe'
+pickle  = require './pickle'
+helpers = require './helpers'
 
 # Get the singleton of the router all channels use.
 { ChanID, FnID, router }  = require './router'
@@ -60,7 +58,7 @@ class Channel
         @on constants.ready, @onReady
 
         # Say to the other window we are ready. Need to force the message.
-        nextTick =>
+        helpers.nextTick =>
             @postMessage { 'method': @scopeMethod(constants.ready), 'params': [ 'ping' ] }, yes
 
     # Ping the other window.
@@ -86,7 +84,7 @@ class Channel
     trigger: (method, opts...) ->
         # Is this circular?
         try
-            Cryo.stringify opts
+            pickle.stringify opts
         catch e
             return @error 'cannot convert circular structure'
 
@@ -127,7 +125,7 @@ class Channel
         message[constants.postmessage] = yes
         
         # Call the other window.
-        @window.postMessage Cryo.stringify(message), '*'
+        @window.postMessage pickle.stringify(message), '*'
 
     # On an incoming message.
     onMessage: (method, params) =>
@@ -200,7 +198,7 @@ class Channel
 
         unless message
             try
-                message = Cryo.stringify err
+                message = pickle.stringify err
             catch
                 message = do err.toString
 

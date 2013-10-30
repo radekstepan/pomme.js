@@ -1,0 +1,12 @@
+{
+  "name": "coffee-script",
+  "_cacheHeaders": {
+    "Last-Modified": "Tue, 08 Oct 2013 01:25:32 GMT",
+    "Content-Length": "200362",
+    "Content-Type": "application/x-javascript"
+  },
+  "main": "index.js",
+  "_source": "http://jashkenas.github.io/coffee-script/extras/coffee-script.js",
+  "_target": "*",
+  "_originalSource": "http://jashkenas.github.io/coffee-script/extras/coffee-script.js"
+}

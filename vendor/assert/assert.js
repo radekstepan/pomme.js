@@ -51,16 +51,6 @@ var util = {
 
 var pSlice = Array.prototype.slice;
 
-// from https://github.com/substack/node-deep-equal
-var Object_keys = typeof Object.keys === 'function'
-    ? Object.keys
-    : function (obj) {
-        var keys = [];
-        for (var key in obj) keys.push(key);
-        return keys;
-    }
-;
-
 // 1. The assert module provides functions that throw
 // AssertionError's when particular conditions are not met. The
 // assert module must conform to the following interface.
@@ -88,16 +78,8 @@ assert.AssertionError = function AssertionError(options) {
 
   if (Error.captureStackTrace) {
     Error.captureStackTrace(this, stackStartFunction);
-  } else {
-    // try to throw an error now, and from the stack property
-    // work out the line that called in to assert.js.
-    try {
-      this.stack = (new Error).stack.toString();
-    } catch (e) {}
   }
 };
-
-// assert.AssertionError instanceof Error
 util.inherits(assert.AssertionError, Error);
 
 function replacer(key, value) {
@@ -133,6 +115,10 @@ assert.AssertionError.prototype.toString = function() {
     ].join(' ');
   }
 };
+
+// assert.AssertionError instanceof Error
+
+assert.AssertionError.__proto__ = Error.prototype;
 
 // At present only the three keys mentioned above are used and
 // understood by the spec. Implementations or sub modules can pass
@@ -265,8 +251,8 @@ function objEquiv(a, b) {
     return _deepEqual(a, b);
   }
   try {
-    var ka = Object_keys(a),
-        kb = Object_keys(b),
+    var ka = Object.keys(a),
+        kb = Object.keys(b),
         key, i;
   } catch (e) {//happens when one is a string literal and the other isn't
     return false;
@@ -324,7 +310,7 @@ function expectedException(actual, expected) {
     return false;
   }
 
-  if (Object.prototype.toString.call(expected) == '[object RegExp]') {
+  if (expected instanceof RegExp) {
     return expected.test(actual);
   } else if (actual instanceof expected) {
     return true;
@@ -353,11 +339,11 @@ function _throws(shouldThrow, block, expected, message) {
             (message ? ' ' + message : '.');
 
   if (shouldThrow && !actual) {
-    fail(actual, expected, 'Missing expected exception' + message);
+    fail('Missing expected exception' + message);
   }
 
   if (!shouldThrow && expectedException(actual, expected)) {
-    fail(actual, expected, 'Got unwanted exception' + message);
+    fail('Got unwanted exception' + message);
   }
 
   if ((shouldThrow && actual && expected &&
@@ -374,16 +360,11 @@ assert.throws = function(block, /*optional*/error, /*optional*/message) {
 };
 
 // EXTENSION! This is annoying to write outside this module.
-assert.doesNotThrow = function(block, /*optional*/message) {
+assert.doesNotThrow = function(block, /*optional*/error, /*optional*/message) {
   _throws.apply(this, [false].concat(pSlice.call(arguments)));
 };
 
 assert.ifError = function(err) { if (err) {throw err;}};
 
-if (typeof define === 'function' && define.amd) {
-  define('assert', function () {
-    return assert;
-  });
-}
-
 })(this);
+
