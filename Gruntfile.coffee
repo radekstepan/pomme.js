@@ -4,10 +4,8 @@ module.exports = (grunt) ->
         
         apps_c:
             commonjs:
-                # http://gruntjs.com/configuring-tasks#files
-                # https://github.com/gruntjs/grunt/wiki/Configuring-tasks#globbing-patterns
                 src: [ 'src/**/*.{coffee,js,eco}' ]
-                dest: 'build/app.js'
+                dest: 'build/app.commonjs.js'
                 options:
                     main: 'src/index.js'
 

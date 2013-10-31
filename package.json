@@ -5,6 +5,7 @@
     "dependencies": {
         "lodash": "~2.2.1",
         "async": "~0.2.9",
+        "glob": "~3.2.6",
         
         "coffee-script": "1.6.3",
         "eco": "~1.1.0-rc-3"

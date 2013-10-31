@@ -1,5 +1,6 @@
 _     = require 'lodash'
 async = require 'async'
+glob  = require 'glob'
 path  = require 'path'
 fs    = require 'fs'
 
@@ -12,18 +13,33 @@ dir = __dirname
 moulds = {} ; ready = no ; callbacks = []
 
 async.waterfall [ (cb) ->
-    fs.readdir dir + '/moulds', cb
+    glob dir + '/moulds/**/*.eco.js', cb
 
 , (files, cb) ->
+    # Process in parallel.
     async.each files, (file, cb) ->
-        fs.readFile dir + '/moulds/' + file, 'utf8', (err, mould) ->
+        # Is it a file?
+        fs.stat file, (err, stats) ->
             return cb err if err
-            
-            # Make into an Eco function.
-            moulds[file.split('.')[0]] = (context) ->
-                eco.render mould, context
-            
-            cb null
+
+            # Skip directories.
+            return cb null unless do stats.isFile
+
+            # Read the mould.
+            fs.readFile file, 'utf8', (err, mould) ->
+                return cb err if err
+
+                # Get a relative from the file.
+                pointer = moulds
+                for i, part of parts = file.match(/moulds\/(.*)\.eco\.js$/)[1].split('/')
+                    if parts.length is +i + 1
+                        # Make into an Eco function.
+                        pointer[part] = (context) ->
+                            eco.render mould, context
+                    else
+                        pointer = pointer[part] ?= {}
+
+                cb null
     , cb
 
 ], (err) ->
@@ -94,6 +110,9 @@ commonjs = (grunt, cb) ->
         # Say we use this index file.
         grunt.log.writeln "Using index file #{opts.main.bold}".yellow
 
+        # Remove the extension. It will be a `.js` one.
+        opts.main = opts.main.split('.')[0...-1].join('.')
+
         # For each source.
         async.map sources, (source, cb) ->
             # Find the handler.
@@ -105,33 +124,35 @@ commonjs = (grunt, cb) ->
                 return cb err if err
 
                 # Wrap it in the module registry.
-                cb null, moulds.module
+                cb null, moulds.commonjs.module
                     'package': pkg.name
                     'path': source
                     'script': moulds.lines
-                        'spaces': 4
+                        'spaces': 2
                         'lines': result
 
         # Merge it into a destination file.
         , (err, modules) ->
             return cb err if err
 
+            # Nicely format the modules.
             modules = _.map modules, (module) ->
                 moulds.lines 'spaces': 4, 'lines': module
 
-            # Wrap in CommonJS.
-            content = moulds.require { modules }
+            # Write a vanilla version and one packing a requirerer.
+            async.each [ 'require', 'vanilla' ], (variant, cb) ->
+                out = moulds.commonjs[variant]
+                    'modules': modules
+                    'package': pkg.name
+                    'main': opts.main
 
-            # Expose to the outside world.
-            out = moulds.wrapper
-                'package': pkg.name
-                'main': opts.main.split('.')[0...-1].join('.')
-                'content': moulds.lines
-                    'spaces': 4
-                    'lines': content
+                # Inject a suffix.
+                filename = destination.replace /\.([^\.]*)$/, ".#{variant}.$1"
 
-            # Write it.
-            fs.writeFile destination, out, cb
+                # Write it.
+                fs.writeFile filename, out, cb
+
+            , cb
     
     , cb
 
