@@ -53,9 +53,13 @@ class Channel
 
         # Register channel with the router.
         router.register @window, @scope, @onMessage
-
+        
         # Be ready when we are ready...
         @on constants.ready, @onReady
+
+        # By default add an eval listener in context of this class.
+        @on 'eval', (code) =>
+            eval.call @, code
 
         # Say to the other window we are ready. Need to force the message.
         helpers.nextTick =>
@@ -66,7 +70,7 @@ class Channel
         return @error 'received ready message while in ready state' if @ready
 
         # Set who is parent/child.
-        @id += if type is 'ping' then ':A' else ':B'
+        @id += [ ':B', ':A' ][+type is 'ping']
         
         # No longer need to be called.
         @unbind constants.ready
@@ -123,7 +127,7 @@ class Channel
 
         # How to identify our messages?
         message[constants.postmessage] = yes
-        
+
         # Call the other window.
         @window.postMessage pickle.stringify(message), '*'
 

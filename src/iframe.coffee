@@ -15,9 +15,6 @@ class iFrame
         @node.name = name
         document.querySelector(target).appendChild @node
 
-        # Use a custom template or go spec one?
-        template ?= require './template'
-
         return @error 'template is not a function' unless _.isFunction template
 
         # Pass it scope.

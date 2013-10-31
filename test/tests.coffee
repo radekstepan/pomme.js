@@ -1,10 +1,26 @@
 Pomme = require 'pomme.js'
 
+# A template requiring the libs.
+template = (listeners='') ->
+    ({ scope }) ->
+        scope ?= 'testScope'
+        """
+        <script src="/vendor/lodash/dist/lodash.min.js"></script>
+        <script src="/vendor/cryo/lib/cryo.js"></script>
+        <script src="/build/app.js"></script>
+        <script>
+            var Pomme = require('pomme.js');
+            var channel = new Pomme({ 'scope': '#{scope}' });
+
+            #{listeners}
+        </script>
+        """
+
 suite 'pomme.js', ->
 
     test 'should have separate channels', (done) ->
-        a = new Pomme 'target': 'body'
-        b = new Pomme 'target': 'body'
+        a = new Pomme { 'target': 'body', 'template': do template }
+        b = new Pomme { 'target': 'body', 'template': do template }
 
         assert.equal a.id, 0
         assert.equal b.id, 1
@@ -17,21 +33,11 @@ suite 'pomme.js', ->
     test 'should be able to trigger a function with a callback', (done) ->
         channel = new Pomme
             'target': 'body'
-            'template': ({ scope }) -> """
-                <script src="/vendor/lodash/dist/lodash.min.js"></script>
-                <script src="/build/app.js"></script>
-                <script>
-                (function() {
-                    var Pomme = require('pomme.js');
-
-                    var channel = new Pomme();
-
-                    channel.on('fn', function(cb) {
-                        cb(null, 'ok');
-                    });
-                })();
-                </script>
-            """
+            'template': template """
+                channel.on('fn', function(cb) {
+                    cb(null, 'ok');
+                });
+                """
 
         channel.trigger 'fn', (err, res) ->
             assert.ifError err
@@ -40,7 +46,7 @@ suite 'pomme.js', ->
             do done
 
     test 'should trigger error event on circular objects', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
         
         obj = {}
         obj.key = obj
@@ -54,7 +60,7 @@ suite 'pomme.js', ->
         do done
 
     test 'should be silent when error handler is not provided', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
         
         obj = {}
         obj.key = obj
@@ -70,22 +76,12 @@ suite 'pomme.js', ->
     test 'should be able to bubble errors up from a child', (done) ->
         channel = new Pomme
             'target': 'body'
-            'template': ({ scope }) -> """
-                <script src="/vendor/lodash/dist/lodash.min.js"></script>
-                <script src="/build/app.js"></script>
-                <script>
-                (function() {
-                    var Pomme = require('pomme.js');
-                    
-                    var channel = new Pomme();
-                    
-                    var obj = {};
-                    obj.key = obj;
+            'template': template """
+                var obj = {};
+                obj.key = obj;
 
-                    channel.trigger('fn', obj);
-                })();
-                </script>
-            """
+                channel.trigger('fn', obj);
+                """
 
         channel.on 'error', (err) ->
             assert.equal err, 'cannot convert circular structure'
@@ -95,21 +91,11 @@ suite 'pomme.js', ->
     test 'should be able to bubble up thrown errors from a child', (done) ->
         channel = new Pomme
             'target': 'body'
-            'template': ({ scope }) -> """
-                <script src="/vendor/lodash/dist/lodash.min.js"></script>
-                <script src="/build/app.js"></script>
-                <script>
-                (function() {
-                    var Pomme = require('pomme.js');
-                    
-                    var channel = new Pomme();
-
-                    channel.on('fn', function(cb) {
-                        throw 'Some error'
-                    });
-                })();
-                </script>
-            """
+            'template': template """
+                channel.on('fn', function(cb) {
+                    throw 'Some error'
+                });
+                """
 
         channel.on 'error', (err) ->
             assert.equal err, 'Some error'
@@ -121,21 +107,11 @@ suite 'pomme.js', ->
     test 'should be able to pass multiple params', (done) ->
         channel = new Pomme
             'target': 'body'
-            'template': ({ scope }) -> """
-                <script src="/vendor/lodash/dist/lodash.min.js"></script>
-                <script src="/build/app.js"></script>
-                <script>
-                (function() {
-                    var Pomme = require('pomme.js');
-                    
-                    var channel = new Pomme();
-                    
-                    channel.on('swapper', function(a, b, cb) {
-                        cb(null, b, a);
-                    });
-                })();
-                </script>
-            """
+            'template': template """
+                channel.on('swapper', function(a, b, cb) {
+                    cb(null, b, a);
+                });
+                """
 
         channel.trigger 'swapper', 'A', 'B', (err, b, a) ->
             assert.ifError err
@@ -145,7 +121,7 @@ suite 'pomme.js', ->
             do done
 
     test 'should be able to eval by default', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         channel.on 'error', (err) ->
             assert.ifError err
@@ -158,8 +134,8 @@ suite 'pomme.js', ->
         channel.trigger 'eval', "channel.trigger('response', 'ok');"
 
     test 'no cross channel comms', (done) ->
-        a = new Pomme 'target': 'body'
-        b = new Pomme 'target': 'body'
+        a = new Pomme { 'target': 'body', 'template': do template }
+        b = new Pomme { 'target': 'body', 'template': do template }
 
         i = 0
         fin = ->
@@ -181,7 +157,7 @@ suite 'pomme.js', ->
         a.trigger 'eval', "channel.trigger('response', 'A');"
 
     test 'should dispose itself', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         # All the iframes.
         length = window.frames.length
@@ -204,7 +180,7 @@ suite 'pomme.js', ->
         do done
 
     test 'should unbind handlers', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         channel.on 'something', ->
 
@@ -218,7 +194,7 @@ suite 'pomme.js', ->
         do channel.dispose
 
     test 'should bind to functions', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         channel.on 'error', (err) ->
             assert.equal err, 'callback missing'
@@ -228,7 +204,7 @@ suite 'pomme.js', ->
         channel.on 'something', no
 
     test 'should throw when unbinding nonexistent handlers', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         channel.on 'error', (err) ->
             assert.equal err, '`weird` is not bound'
@@ -246,34 +222,34 @@ suite 'pomme.js', ->
 
     test 'should throw when window target is nonexistent', (done) ->
         try
-            channel = new Pomme 'target': 666
+            channel = new Pomme { 'target': 666 }
         catch err
             assert.equal do err.toString, 'target selector not found'
             do done
 
     test 'should throw when template is not a function', (done) ->
         try
-            channel = new Pomme 'target': 'body', 'template': 666
+            channel = new Pomme { 'target': 'body', 'template': 666 }
         catch err
             assert.equal do err.toString, 'template is not a function'
             do done
 
     test 'should throw when template does not return a string', (done) ->
         try
-            channel = new Pomme 'target': 'body', 'template': -> 666
+            channel = new Pomme { 'target': 'body', 'template': -> 666 }
         catch err
             assert.equal do err.toString, 'template did not return a string'
             do done
 
     test 'should accept only strings as a scope', (done) ->
         try
-            channel = new Pomme 'target': 'body', 'scope': ->
+            channel = new Pomme { 'target': 'body', 'scope': -> }
         catch e
             do done
 
     test 'should be able to use an iframe as a target', (done) ->
-        a = new Pomme 'target': 'body', 'scope': 'a'
-        b = new Pomme 'target': a.window, 'scope': 'b'
+        a = new Pomme { 'target': 'body', 'scope': 'a', 'template': do template }
+        b = new Pomme { 'target': a.window, 'scope': 'b', 'template': do template }
 
         a.on 'response', (res) ->
             assert false
@@ -285,17 +261,17 @@ suite 'pomme.js', ->
             do done
 
         a.trigger 'eval', """
-        var test = new Pomme({'scope': 'b'});
-        test.on('query', function() {
-            test.trigger('response', 'ok');
-        });
-        """
+            var test = new Pomme({'scope': 'b'});
+            test.on('query', function() {
+                test.trigger('response', 'ok');
+            });
+            """
 
         a.trigger('query')
         b.trigger('query')
 
     test 'should throw when registering the same window and scope', (done) ->
-        a = new Pomme 'target': 'body', 'scope': 'a'
+        a = new Pomme { 'target': 'body', 'scope': 'a', 'template': do template }
 
         try
             b = new Pomme 'target': a.window, 'scope': 'a'
@@ -305,7 +281,7 @@ suite 'pomme.js', ->
             do done
 
     test 'should allow chaining of trigger', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         i = 0
         channel.on 'response', ->
@@ -319,7 +295,7 @@ suite 'pomme.js', ->
         .trigger('eval', "channel.trigger('response')")
 
     test 'should allow chaining of on', (done) ->
-        channel = new Pomme 'target': 'body'
+        channel = new Pomme { 'target': 'body', 'template': do template }
 
         i = 0
         handle = ->
@@ -333,8 +309,8 @@ suite 'pomme.js', ->
         .on('b', handle)
 
         channel.trigger 'eval', """
-        channel.trigger('a');
-        channel.trigger('b');
-        """
+            channel.trigger('a');
+            channel.trigger('b');
+            """
 
 do mocha.run

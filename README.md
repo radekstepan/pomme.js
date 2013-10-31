@@ -58,7 +58,7 @@ channel.on('glitchy', function(text, cb) {
 });
 ```
 
-By default, an `eval` listener is provided in the child, so you can execute code in the context of the child. A better solution is to write a template though. In either case, we inject a string of code to the iframe to be executed.
+By default, an `eval` listener is provided in the child, so you can execute code in the context of the child. Remember that the context of the execution will be the `window`. A better solution is to write a template though. In either case, we inject a string of code to the iframe to be executed.
 
 ####Errors
 

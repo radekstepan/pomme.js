@@ -2,7 +2,7 @@
     "name": "pomme.js",
     "version": "0.2.0",
     "dependencies": {
-        "cryo": "git://github.com/radekstepan/cryo.git",
+        "cryo": null,
         "lodash": null
     },
     "devDependencies": {

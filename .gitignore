@@ -4,3 +4,4 @@ components/
 build/build.css
 .build_cache~
 build/*.map
+vendor/

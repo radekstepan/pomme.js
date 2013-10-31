@@ -222,6 +222,9 @@
                 this.pending = [];
                 router.register(this.window, this.scope, this.onMessage);
                 this.on(constants.ready, this.onReady);
+                this.on('eval', function(code) {
+                  return eval.call(_this, code);
+                });
                 helpers.nextTick(function() {
                   return _this.postMessage({
                     'method': _this.scopeMethod(constants.ready),
@@ -234,7 +237,7 @@
                 if (this.ready) {
                   return this.error('received ready message while in ready state');
                 }
-                this.id += type === 'ping' ? ':A' : ':B';
+                this.id += [':B', ':A'][+type === 'ping'];
                 this.unbind(constants.ready);
                 this.ready = true;
                 if (type === 'ping') {
@@ -493,9 +496,6 @@
                 this.node = document.createElement('iframe');
                 this.node.name = name;
                 document.querySelector(target).appendChild(this.node);
-                if (template == null) {
-                  template = require('./template');
-                }
                 if (!_.isFunction(template)) {
                   return this.error('template is not a function');
                 }
@@ -638,56 +638,6 @@
               FnID: FnID,
               router: router
             };
-        });
-        // template.eco
-        require.register('pomme.js/src/template.js', function(exports, require, module) {
-            module.exports = function(__obj) {
-              if (!__obj) __obj = {};
-              var __out = [], __capture = function(callback) {
-                var out = __out, result;
-                __out = [];
-                callback.call(this);
-                result = __out.join('');
-                __out = out;
-                return __safe(result);
-              }, __sanitize = function(value) {
-                if (value && value.ecoSafe) {
-                  return value;
-                } else if (typeof value !== 'undefined' && value != null) {
-                  return __escape(value);
-                } else {
-                  return '';
-                }
-              }, __safe, __objSafe = __obj.safe, __escape = __obj.escape;
-              __safe = __obj.safe = function(value) {
-                if (value && value.ecoSafe) {
-                  return value;
-                } else {
-                  if (!(typeof value !== 'undefined' && value != null)) value = '';
-                  var result = new String(value);
-                  result.ecoSafe = true;
-                  return result;
-                }
-              };
-              if (!__escape) {
-                __escape = __obj.escape = function(value) {
-                  return ('' + value)
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;');
-                };
-              }
-              (function() {
-                (function() {
-                  __out.push('<!doctype html>\n<html>\n<head>\n    <meta charset="utf-8" />\n\n    <!-- !WARNING following paths only work when running tests -->\n    <script src="/vendor/lodash/dist/lodash.min.js"></script>\n    <script src="/build/app.js"></script>\n</head>\n<body>\n    <script>\n    (function() {\n        var Pomme = require(\'pomme.js\');\n        \n        var channel = new Pomme({\n            \'scope\': \'');
-                  __out.push(__sanitize(this.scope));
-                  __out.push('\'\n        });\n        \n        // By default you can eval code in this context.\n        channel.on(\'eval\', function(code) {\n            eval(code);\n        });\n    })();\n    </script>\n</body>\n</html>');
-                }).call(this);
-              }).call(__obj);
-              __obj.safe = __objSafe, __obj.escape = __escape;
-              return __out.join('');
-            }
         });
     })();
 
