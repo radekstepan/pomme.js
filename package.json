@@ -13,10 +13,9 @@
     "devDependencies": {
         "bower": "~1.2.7",
         "grunt": "~0.4.1",
-
-        "grunt-coffee-build": "~1.4.12",
-        "grunt-contrib-stylus": "~0.9.0",
-        "grunt-mustache": "~0.1.4"
+        
+        "grunt-contrib-concat": "~0.3.0",
+        "grunt-contrib-uglify": "~0.2.5"
     },
     "repository": {
         "type": "git",
