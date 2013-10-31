@@ -6,7 +6,7 @@ JavaScript component for communication between parent and child browser frames u
 
 ```bash
 $ npm install
-$ make [build|watch|serve]
+$ make [build|install|watch|serve]
 ```
 
 ##Use it
@@ -30,7 +30,7 @@ You can see an example in `/test/tests.coffee`.
 // wherever this is served from
 var Pomme = require('pomme.js');
 // Probably needs some params, see above.
-var channel = new Pomme({});
+var channel = new Pomme();
 // ...
 ```
 

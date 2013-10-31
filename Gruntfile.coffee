@@ -29,8 +29,8 @@ module.exports = (grunt) ->
                     'build/app.commonjs.require.min.js': 'build/app.commonjs.require.js'
                     'build/app.commonjs.vanilla.min.js': 'build/app.commonjs.vanilla.js'
 
-    grunt.loadTasks('tasks')
 
+    grunt.loadNpmTasks('grunt-apps-c')
     grunt.loadNpmTasks('grunt-contrib-concat')
     grunt.loadNpmTasks('grunt-contrib-uglify')
 
