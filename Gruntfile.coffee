@@ -5,7 +5,7 @@ module.exports = (grunt) ->
         apps_c:
             commonjs:
                 src: [ 'src/**/*.{coffee,js,eco}' ]
-                dest: 'build/app.commonjs.js'
+                dest: 'build/app.js'
                 options:
                     main: 'src/index.js'
 
@@ -18,16 +18,15 @@ module.exports = (grunt) ->
                     'vendor/lodash/dist/lodash.js'
                     'vendor/cryo/lib/cryo.js'
                     # Our app with requirerer.
-                    'build/app.commonjs.require.js'
+                    'build/app.js'
                 ]
-                dest: 'build/app.commonjs.bundle.js'
+                dest: 'build/app.bundle.js'
 
         uglify:
             my_target:
                 files:
-                    'build/app.commonjs.bundle.min.js': 'build/app.commonjs.bundle.js'
-                    'build/app.commonjs.require.min.js': 'build/app.commonjs.require.js'
-                    'build/app.commonjs.vanilla.min.js': 'build/app.commonjs.vanilla.js'
+                    'build/app.min.js': 'build/app.js'
+                    'build/app.bundle.min.js': 'build/app.bundle.js'
 
 
     grunt.loadNpmTasks('grunt-apps-c')

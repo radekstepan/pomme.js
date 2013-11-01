@@ -5,7 +5,7 @@ template = (listeners='') ->
     ({ scope }) ->
         scope ?= 'testScope'
         """
-        <script src="/build/app.commonjs.bundle.min.js"></script>
+        <script src="/build/app.bundle.js"></script>
         <script>
             var Pomme = require('pomme.js');
             var channel = new Pomme({ 'scope': '#{scope}' });

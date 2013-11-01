@@ -751,9 +751,32 @@
     });
   })();
 
-  // Use our or outside require?
-  this.require = (this.require) ? this.require : require;
+  // Return the main app.
+  var main = require("pomme.js/src/index.js");
 
-  // Expose the app.
+  // Global on server, window in browser.
+  var root = this;
+
+  // AMD/RequireJS.
+  if (typeof define !== 'undefined' && define.amd) {
+    define("pomme.js", [ /* load deps ahead of time */ ], function () {
+      return main;
+    });
+  }
+
+  // CommonJS.
+  else if (typeof module !== 'undefined' && module.exports) {
+    module.exports = main;
+  }
+
+  // Globally exported.
+  else {
+    root["pomme.js"] = main;
+  }
+
+  // Alias our app.
   require.alias("pomme.js/src/index.js", "pomme.js/index.js");
+
+  // Export internal loader?
+  root.require = (typeof root.require !== 'undefined') ? root.require : require;
 })();

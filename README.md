@@ -11,7 +11,42 @@ $ make [build|install|watch|serve]
 
 ##Use it
 
-You can see an example in `/test/tests.coffee`.
+Grab one of the `/build` files:
+
+1. `app.js`: contains just the app
+1. `app.bundle.js`: contains the app and its two dependencies [Cryo](https://github.com/hunterloftis/cryo) and [Lo-Dash](http://lodash.com/). It should be noted that only the latter is required. If Cryo is not present, JSON will be used to pickle/freeze/stringify objects.
+
+If you would like to see how are these files being built check out `Gruntfile.coffee`.
+
+The app works only in the browser. There, depending on the environment, it will be available as a:
+
+###RequireJS/AMD module
+
+Please note that you need to make sure the dependencies are loaded first.
+
+```javascript
+requirejs([ 'pomme.js' ], function(Pomme) {
+  // ...
+});
+```
+
+###CommonJS module
+
+The internal loader will be made available globally as well if `window.require` is free.
+
+```javascript
+var Pomme = require('pomme.js');
+```
+
+###Property of `window` object
+
+```javascript
+var Pomme = window['pomme.js'];
+```
+
+Do not forget the `.` in the name...
+
+You can see examples of usage in `/test/tests.coffee`.
 
 ###Config
 
