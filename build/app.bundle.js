@@ -7318,9 +7318,31 @@
 
   // AMD/RequireJS.
   if (typeof define !== 'undefined' && define.amd) {
+  
     define("pomme.js", [ /* load deps ahead of time */ ], function () {
       return main;
     });
+  
+    define("Pomme.js", [ /* load deps ahead of time */ ], function () {
+      return main;
+    });
+  
+    define("pommejs", [ /* load deps ahead of time */ ], function () {
+      return main;
+    });
+  
+    define("PommeJS", [ /* load deps ahead of time */ ], function () {
+      return main;
+    });
+  
+    define("pomme", [ /* load deps ahead of time */ ], function () {
+      return main;
+    });
+  
+    define("Pomme", [ /* load deps ahead of time */ ], function () {
+      return main;
+    });
+  
   }
 
   // CommonJS.
@@ -7330,11 +7352,35 @@
 
   // Globally exported.
   else {
+  
     root["pomme.js"] = main;
+  
+    root["Pomme.js"] = main;
+  
+    root["pommejs"] = main;
+  
+    root["PommeJS"] = main;
+  
+    root["pomme"] = main;
+  
+    root["Pomme"] = main;
+  
   }
 
   // Alias our app.
+  
   require.alias("pomme.js/src/index.js", "pomme.js/index.js");
+  
+  require.alias("pomme.js/src/index.js", "Pomme.js/index.js");
+  
+  require.alias("pomme.js/src/index.js", "pommejs/index.js");
+  
+  require.alias("pomme.js/src/index.js", "PommeJS/index.js");
+  
+  require.alias("pomme.js/src/index.js", "pomme/index.js");
+  
+  require.alias("pomme.js/src/index.js", "Pomme/index.js");
+  
 
   // Export internal loader?
   root.require = (typeof root.require !== 'undefined') ? root.require : require;

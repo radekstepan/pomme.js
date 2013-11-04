@@ -7,6 +7,14 @@ module.exports = (grunt) ->
                 src: [ 'src/**/*.{coffee,js,eco}' ]
                 dest: 'build/app.js'
                 options:
+                    name: [
+                        'pomme.js'
+                        'Pomme.js'
+                        'pommejs'
+                        'PommeJS'
+                        'pomme'
+                        'Pomme'
+                    ]
                     main: 'src/index.js'
 
         concat:
