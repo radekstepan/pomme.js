@@ -243,3 +243,7 @@ _.mixin do ->
                 no
             else
                 obj.window is obj
+    # Only works on Objects unlike its Lodash counterpart.
+    'transform': (obj, cb) ->
+        ( cb(obj, val, key) for key, val of obj )
+        obj

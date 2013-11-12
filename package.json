@@ -1,15 +1,7 @@
 {
     "name": "pomme.js",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "description": "JS comms between frames using postMessage",
-    "dependencies": {
-        "lodash": "~2.2.1",
-        "async": "~0.2.9",
-        "glob": "~3.2.6",
-        
-        "coffee-script": "1.6.3",
-        "eco": "~1.1.0-rc-3"
-    },
     "devDependencies": {
         "bower": "~1.2.7",
         "grunt": "~0.4.1",

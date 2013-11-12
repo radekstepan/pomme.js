@@ -1,8 +1,8 @@
 {
     "name": "pomme.js",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "dependencies": {
-        "lodash": null
+        "underscore": null
     },
     "devDependencies": {
         "mocha": null,

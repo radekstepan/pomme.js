@@ -15,7 +15,7 @@ module.exports = (grunt) ->
                         'pomme'
                         'Pomme'
                     ]
-                    main: 'src/index.js'
+                    main: 'src/channel.coffee'
 
         concat:
             options:
@@ -23,7 +23,7 @@ module.exports = (grunt) ->
             dist:
                 src: [
                     # Vendor dependencies.
-                    'vendor/lodash/dist/lodash.js'
+                    'vendor/underscore/underscore.js'
                     # Our app with requirerer.
                     'build/app.js'
                 ]

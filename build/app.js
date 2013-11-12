@@ -472,6 +472,14 @@
               default:
                 return obj.window === obj;
             }
+          },
+          'transform': function(obj, cb) {
+            var key, val;
+            for (key in obj) {
+              val = obj[key];
+              cb(obj, val, key);
+            }
+            return obj;
           }
         };
       })());
@@ -612,13 +620,6 @@
     });
 
     
-    // index.js
-    require.register('pomme.js/src/index.js', function(exports, require, module) {
-    
-      module.exports = require('./channel');
-    });
-
-    
     // router.coffee
     require.register('pomme.js/src/router.js', function(exports, require, module) {
     
@@ -736,7 +737,7 @@
   })();
 
   // Return the main app.
-  var main = require("pomme.js/src/index.js");
+  var main = require("pomme.js/src/channel.js");
 
   // Global on server, window in browser.
   var root = this;
@@ -794,17 +795,17 @@
 
   // Alias our app.
   
-  require.alias("pomme.js/src/index.js", "pomme.js/index.js");
+  require.alias("pomme.js/src/channel.js", "pomme.js/index.js");
   
-  require.alias("pomme.js/src/index.js", "Pomme.js/index.js");
+  require.alias("pomme.js/src/channel.js", "Pomme.js/index.js");
   
-  require.alias("pomme.js/src/index.js", "pommejs/index.js");
+  require.alias("pomme.js/src/channel.js", "pommejs/index.js");
   
-  require.alias("pomme.js/src/index.js", "PommeJS/index.js");
+  require.alias("pomme.js/src/channel.js", "PommeJS/index.js");
   
-  require.alias("pomme.js/src/index.js", "pomme/index.js");
+  require.alias("pomme.js/src/channel.js", "pomme/index.js");
   
-  require.alias("pomme.js/src/index.js", "Pomme/index.js");
+  require.alias("pomme.js/src/channel.js", "Pomme/index.js");
   
 
   // Export internal loader?

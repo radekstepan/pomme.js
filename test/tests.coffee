@@ -106,13 +106,24 @@ suite 'pomme.js', ->
         channel = new Pomme
             'target': 'body'
             'template': template """
-                channel.on('swapper', function(a, b, cb) {
-                    cb(null, b, a);
+                channel.on('swapper', function(a, b, complex, cb) {
+                    cb(null, JSON.stringify(complex), b, a);
                 });
                 """
 
-        channel.trigger 'swapper', 'A', 'B', (err, b, a) ->
+        # Eat that.
+        complex = [
+            {
+                'hello':
+                    'world': [
+                        1, 2, { 1: ( -> ) }
+                    ]
+            }
+        ]
+
+        channel.trigger 'swapper', 'A', 'B', complex, (err, string, b, a) ->
             assert.ifError err
+            assert.equal string, '[{"hello":{"world":[1,2,{}]}}]'
             assert.equal a, 'A'
             assert.equal b, 'B'
             do channel.dispose
