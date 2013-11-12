@@ -14,7 +14,7 @@ $ make [build|install|watch|serve]
 Grab one of the `/build` files:
 
 1. `app.js`: contains just the app
-1. `app.bundle.js`: contains the app and its two dependencies [Cryo](https://github.com/hunterloftis/cryo) and [Lo-Dash](http://lodash.com/). It should be noted that only the latter is required. If Cryo is not present, JSON will be used to pickle/freeze/stringify objects.
+1. `app.bundle.js`: contains the app and its dependency, [Underscore](http://underscorejs.org/). In addition, JSON is used to un-/pickle objects. Make sure it is present.
 
 If you would like to see how are these files being built check out `Gruntfile.coffee`.
 
