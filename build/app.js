@@ -205,13 +205,11 @@
     // channel.coffee
     require.register('pomme.js/src/channel.js', function(exports, require, module) {
     
-      var ChanID, Channel, FnID, constants, helpers, iFrame, pickle, router, _ref,
+      var ChanID, Channel, FnID, constants, helpers, iFrame, router, _ref,
         __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
         __slice = [].slice;
       
       iFrame = require('./iframe');
-      
-      pickle = require('./pickle');
       
       helpers = require('./helpers');
       
@@ -297,7 +295,7 @@
             _this = this;
           method = arguments[0], opts = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
           try {
-            pickle.stringify(opts);
+            JSON.stringify(opts);
           } catch (_error) {
             e = _error;
             return this.error('cannot convert circular structure');
@@ -339,7 +337,7 @@
             return this.pending.push(message);
           }
           message[constants.postmessage] = true;
-          return this.window.postMessage(pickle.stringify(message), '*');
+          return this.window.postMessage(JSON.stringify(message), '*');
         };
       
         Channel.prototype.onMessage = function(method, params) {
@@ -418,7 +416,7 @@
           }
           if (!message) {
             try {
-              message = pickle.stringify(err);
+              message = JSON.stringify(err);
             } catch (_error) {
               message = err.toString();
             }
@@ -621,28 +619,14 @@
     });
 
     
-    // pickle.coffee
-    require.register('pomme.js/src/pickle.js', function(exports, require, module) {
-    
-      var root;
-      
-      root = this;
-      
-      module.exports = root.Cryo || root.JSON;
-      
-    });
-
-    
     // router.coffee
     require.register('pomme.js/src/router.js', function(exports, require, module) {
     
-      var ChanID, FnID, Router, constants, pickle, router,
+      var ChanID, FnID, Router, constants, router,
         __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
         __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
       
       constants = require('./constants');
-      
-      pickle = require('./pickle');
       
       Router = (function() {
         function Router() {
@@ -678,7 +662,7 @@
           var data, method, route, scope, _i, _len, _ref, _ref1, _ref2;
           data = null;
           try {
-            data = pickle.parse(event.data);
+            data = JSON.parse(event.data);
           } catch (_error) {}
           if (!(_.isObject(data) && (_ref = constants.postmessage, __indexOf.call(_.keys(data), _ref) >= 0))) {
             return;

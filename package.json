@@ -1,6 +1,6 @@
 {
     "name": "pomme.js",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "JS comms between frames using postMessage",
     "dependencies": {
         "lodash": "~2.2.1",

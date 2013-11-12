@@ -24,7 +24,6 @@ module.exports = (grunt) ->
                 src: [
                     # Vendor dependencies.
                     'vendor/lodash/dist/lodash.js'
-                    'vendor/cryo/lib/cryo.js'
                     # Our app with requirerer.
                     'build/app.js'
                 ]

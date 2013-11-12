@@ -1,5 +1,4 @@
 iFrame  = require './iframe'
-pickle  = require './pickle'
 helpers = require './helpers'
 
 # Get the singleton of the router all channels use.
@@ -88,7 +87,7 @@ class Channel
     trigger: (method, opts...) ->
         # Is this circular?
         try
-            pickle.stringify opts
+            JSON.stringify opts
         catch e
             return @error 'cannot convert circular structure'
 
@@ -129,7 +128,7 @@ class Channel
         message[constants.postmessage] = yes
 
         # Call the other window.
-        @window.postMessage pickle.stringify(message), '*'
+        @window.postMessage JSON.stringify(message), '*'
 
     # On an incoming message.
     onMessage: (method, params) =>
@@ -202,7 +201,7 @@ class Channel
 
         unless message
             try
-                message = pickle.stringify err
+                message = JSON.stringify err
             catch
                 message = do err.toString
 

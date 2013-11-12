@@ -1,5 +1,4 @@
 constants = require './constants'
-pickle    = require './pickle'
 
 # Maintain a routing table.
 class Router
@@ -24,7 +23,7 @@ class Router
     route: (event) =>
         data = null
         # Only accept "our" messages.
-        try data = pickle.parse event.data
+        try data = JSON.parse event.data
 
         # Well formed but not for our app.
         return unless _.isObject(data) and constants.postmessage in _.keys(data)
