@@ -1,3 +1,9 @@
+# Check the environment first.
+unless 'postMessage' of window
+    throw 'cannot run in this browser, no postMessage'
+unless '[1,2,3]' is JSON.stringify ( -> [].slice.call(arguments, 0) )(1,2,3)
+    throw 'Array::slice has been modified, Prototype on the page?'
+
 iFrame  = require './iframe'
 helpers = require './helpers'
 

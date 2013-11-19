@@ -58,9 +58,6 @@ class FnID
     constructor: ->
         @id = constants.function + FnID::_id++
 
-# Browser capabilities check
-throw 'cannot run in this browser, no postMessage' unless 'postMessage' of window
-
 # Everybody use this one.
 router = new Router()
 

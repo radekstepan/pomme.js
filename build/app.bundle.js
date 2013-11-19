@@ -1491,6 +1491,16 @@
         __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
         __slice = [].slice;
       
+      if (!('postMessage' in window)) {
+        throw 'cannot run in this browser, no postMessage';
+      }
+      
+      if ('[1,2,3]' !== JSON.stringify((function() {
+        return [].slice.call(arguments, 0);
+      })(1, 2, 3))) {
+        throw 'Array::slice has been modified, Prototype on the page?';
+      }
+      
       iFrame = require('./iframe');
       
       helpers = require('./helpers');
@@ -1994,10 +2004,6 @@
         return FnID;
       
       })();
-      
-      if (!('postMessage' in window)) {
-        throw 'cannot run in this browser, no postMessage';
-      }
       
       router = new Router();
       

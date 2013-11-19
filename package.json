@@ -1,6 +1,6 @@
 {
     "name": "pomme.js",
-    "version": "0.2.5",
+    "version": "0.2.6",
     "description": "JS comms between frames using postMessage",
     "devDependencies": {
         "bower": "~1.2.7",
