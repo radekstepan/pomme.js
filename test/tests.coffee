@@ -226,7 +226,7 @@ suite 'pomme.js', ->
         try
             channel = new Pomme()
         catch err
-            assert.equal do err.toString, 'child and parent windows cannot be one and the same'
+            assert.equal do err.toString, 'Error: child and parent windows cannot be one and the same'
             do done
 
     test 'should throw when window target is nonexistent', (done) ->
@@ -285,7 +285,7 @@ suite 'pomme.js', ->
         try
             b = new Pomme 'target': a.window, 'scope': 'a'
         catch err
-            assert.equal do err.toString, 'a channel is already bound to the same window under `a`'
+            assert.equal do err.toString, 'Error: a channel is already bound to the same window under `a`'
             do a.dispose
             do done
 
