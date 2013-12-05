@@ -9,8 +9,11 @@ module.exports =
                 (f) -> setImmediate f
 
             # setTimeout.
-            when typeof(root) is 'undefined' or 'ActiveXObject' of root or not 'postMessage' of root
-                (f) -> setTimeout f
+            when typeof(root) is 'undefined' or
+                'ActiveXObject' of root or
+                    not 'postMessage' of root
+                (f) ->
+                    setTimeout f
 
             # postMessage.
             else

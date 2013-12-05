@@ -10,7 +10,7 @@
     var resolved = require.resolve(path);
 
     // lookup failed
-    if (null == resolved) {
+    if (null === resolved) {
       orig = orig || path;
       parent = parent || 'root';
       var err = new Error('Failed to require "' + orig + '" from "' + parent + '"');
@@ -36,7 +36,7 @@
     }
 
     return module.exports;
-  }
+  };
 
   /**
    * Registered modules.
@@ -76,7 +76,7 @@
     ];
 
     for (var i = 0; i < paths.length; i++) {
-      var path = paths[i];
+      path = paths[i];
       if (require.modules.hasOwnProperty(path)) return path;
       if (require.aliases.hasOwnProperty(path)) return require.aliases[path];
     }
@@ -102,7 +102,7 @@
     for (var i = 0; i < path.length; ++i) {
       if ('..' == path[i]) {
         curr.pop();
-      } else if ('.' != path[i] && '' != path[i]) {
+      } else if ('.' !== path[i] && '' !== path[i]) {
         segs.push(path[i]);
       }
     }
@@ -167,7 +167,7 @@
     var localRequire = function(path) {
       var resolved = localRequire.resolve(path);
       return require(resolved, parent, path);
-    }
+    };
 
     /**
      * Resolve relative to the parent.
@@ -211,21 +211,21 @@
     // channel.coffee
     root.require.register('pomme.js/src/channel.js', function(exports, require, module) {
     
-      var ChanID, Channel, FnID, constants, helpers, iFrame, router, _ref,
+      var ChanID, Channel, FnID, Iframe, constants, helpers, router, _ref,
         __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
         __slice = [].slice;
       
       if (!('postMessage' in window)) {
-        throw 'cannot run in this browser, no postMessage';
+        throw Error('cannot run in this browser, no postMessage');
       }
       
       if ('[1,2,3]' !== JSON.stringify((function() {
         return [].slice.call(arguments, 0);
       })(1, 2, 3))) {
-        throw 'Array::slice has been modified, Prototype on the page?';
+        throw Error('Array::slice has been modified, Prototype on the page?');
       }
       
-      iFrame = require('./iframe');
+      Iframe = require('./iframe');
       
       helpers = require('./helpers');
       
@@ -252,14 +252,14 @@
             this.scope = scope;
           }
           if (!_.isString(this.scope)) {
-            throw 'only strings accepted for a scope';
+            throw Error('only strings accepted for a scope');
           }
           switch (false) {
             case !_.isWindow(target):
               this.window = target;
               break;
             case !target:
-              this.window = (this.iframe = new iFrame({
+              this.window = (this.iframe = new Iframe({
                 id: this.id,
                 target: target,
                 scope: this.scope,
@@ -271,7 +271,7 @@
               this.child = true;
           }
           if (window === this.window) {
-            throw 'child and parent windows cannot be one and the same';
+            throw Error('child and parent windows cannot be one and the same');
           }
           this.handlers = {};
           this.pending = [];
@@ -571,12 +571,12 @@
     // iframe.coffee
     root.require.register('pomme.js/src/iframe.js', function(exports, require, module) {
     
-      var constants, iFrame;
+      var Iframe, constants;
       
       constants = require('./constants');
       
-      iFrame = (function() {
-        function iFrame(_arg) {
+      Iframe = (function() {
+        function Iframe(_arg) {
           var html, id, name, scope, target, template;
           id = _arg.id, target = _arg.target, scope = _arg.scope, template = _arg.template;
           try {
@@ -602,12 +602,12 @@
           this.el = window.frames[name];
         }
       
-        iFrame.prototype.error = function(message) {
+        Iframe.prototype.error = function(message) {
           this.dispose();
           throw message;
         };
       
-        iFrame.prototype.dispose = function() {
+        Iframe.prototype.dispose = function() {
           if (this.disposed) {
             return;
           }
@@ -627,11 +627,11 @@
           return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
         };
       
-        return iFrame;
+        return Iframe;
       
       })();
       
-      module.exports = iFrame;
+      module.exports = Iframe;
       
     });
 
@@ -666,7 +666,7 @@
           for (_i = 0, _len = _ref.length; _i < _len; _i++) {
             route = _ref[_i];
             if (route.win === win) {
-              throw "a channel is already bound to the same window under `" + scope + "`";
+              throw Error("a channel is already bound to the same window under `" + scope + "`");
             }
           }
           return this.table[scope].push({

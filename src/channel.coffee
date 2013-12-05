@@ -1,10 +1,10 @@
 # Check the environment first.
 unless 'postMessage' of window
-    throw 'cannot run in this browser, no postMessage'
+    throw Error('cannot run in this browser, no postMessage')
 unless '[1,2,3]' is JSON.stringify ( -> [].slice.call(arguments, 0) )(1,2,3)
-    throw 'Array::slice has been modified, Prototype on the page?'
+    throw Error('Array::slice has been modified, Prototype on the page?')
 
-iFrame  = require './iframe'
+Iframe  = require './iframe'
 helpers = require './helpers'
 
 # Get the singleton of the router all channels use.
@@ -14,10 +14,12 @@ constants = require './constants'
 
 class Channel
 
-    # Are we ready yet? When set to false we will block & queue outbound messages.
+    # Are we ready yet? When set to false we will block & queue outbound
+    #  messages.
     ready: no
 
-    # Scope is prepended to message names. Windows of a single channel must agree upon scope.
+    # Scope is prepended to message names. Windows of a single channel must
+    #  agree upon scope.
     scope: 'testScope'
 
     # Create a new channel.
@@ -33,7 +35,8 @@ class Channel
         # Which scope to use?
         @scope = scope if scope
 
-        throw 'only strings accepted for a scope' unless _.isString @scope
+        unless _.isString @scope
+            throw Error('only strings accepted for a scope')
 
         switch
             # Parent; existing window.
@@ -41,14 +44,20 @@ class Channel
                 @window = target
             # Parrent; create iframe.
             when target
-                @window = (@iframe = new iFrame({ @id, target, @scope, template })).el
+                @window = (@iframe = new Iframe({
+                    @id,
+                    target,
+                    @scope,
+                    template
+                })).el
             # Child; point to parent.
             else
                 @window = window.parent
                 @child = yes
 
         # Echo chamber not allowed.
-        throw 'child and parent windows cannot be one and the same' if window is @window
+        if window is @window
+            throw Error('child and parent windows cannot be one and the same')
 
         # Method names to message handlers.
         @handlers = {}
@@ -68,7 +77,10 @@ class Channel
 
         # Say to the other window we are ready. Need to force the message.
         helpers.nextTick =>
-            @postMessage { 'method': @scopeMethod(constants.ready), 'params': [ 'ping' ] }, yes
+            @postMessage {
+                'method': @scopeMethod(constants.ready)
+                'params': [ 'ping' ]
+            }, yes
 
     # Ping the other window.
     onReady: (type) =>
@@ -114,7 +126,8 @@ class Channel
                         _.collect obj, defunc
                     # Object and not an array.
                     when _.isObject obj
-                        _.transform obj, (result, val, key) -> result[key] = defunc val
+                        _.transform obj, (result, val, key) ->
+                            result[key] = defunc val
                     # Primitive.
                     else obj
         ) opts
@@ -147,12 +160,14 @@ class Channel
                     _.collect obj, makefunc
                 # Object and not an array.
                 when _.isObject obj
-                    _.transform obj, (result, val, key) -> result[key] = makefunc val
+                    _.transform obj, (result, val, key) ->
+                        result[key] = makefunc val
                 # Matching function pattern.
                 when _.isString(obj) and obj.match(constants.function)
                     # When we get called...
                     =>
-                        # Send a message to the other end invoking a callback function.
+                        # Send a message to the other end invoking a callback
+                        #  function.
                         @trigger.apply @, [ obj ].concat _.toArray(arguments)
                 
                 # Primitive.
@@ -179,9 +194,12 @@ class Channel
     on: (method, cb) ->
         return if @disposed
 
-        return @error '`method` must be string' if not method or not _.isString method
-        return @error 'callback missing' if not cb or not _.isFunction cb
-        return @error "`#{method}` is already bound" if @handlers[method]
+        if not method or not _.isString method
+            return @error '`method` must be string'
+        if not cb or not _.isFunction cb
+            return @error 'callback missing'
+        if @handlers[method]
+            return @error "`#{method}` is already bound"
 
         @handlers[method] = cb
         

@@ -1,10 +1,11 @@
 constants = require './constants'
 
-class iFrame
+class Iframe
 
     constructor: ({ id, target, scope, template }) ->
         # Good selector?
-        try document.querySelector target
+        try
+            document.querySelector target
         catch
             return @error 'target selector not found'
 
@@ -15,10 +16,12 @@ class iFrame
         @node.name = name
         document.querySelector(target).appendChild @node
 
-        return @error 'template is not a function' unless _.isFunction template
+        unless _.isFunction template
+            return @error 'template is not a function'
 
         # Pass it scope.
-        return @error 'template did not return a string' unless _.isString html = template { scope }
+        unless _.isString html = template { scope }
+            return @error 'template did not return a string'
 
         # Write custom content.
         do @node.contentWindow.document.open
@@ -52,4 +55,4 @@ class iFrame
         # No moar change.
         Object.freeze? @
 
-module.exports = iFrame
+module.exports = Iframe

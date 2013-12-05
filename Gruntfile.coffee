@@ -35,9 +35,22 @@ module.exports = (grunt) ->
                     'build/app.min.js': 'build/app.js'
                     'build/app.bundle.min.js': 'build/app.bundle.js'
 
+        coffeelint:
+            app:
+                src: [ 'src/**/*.coffee' ]
+                options:
+                    indentation:
+                        'level': 'ignore'
+
 
     grunt.loadNpmTasks('grunt-apps-c')
     grunt.loadNpmTasks('grunt-contrib-concat')
     grunt.loadNpmTasks('grunt-contrib-uglify')
+    grunt.loadNpmTasks('grunt-coffeelint')
 
-    grunt.registerTask('default', [ 'apps_c', 'concat', 'uglify' ])
+    grunt.registerTask('default', [
+        #'coffeelint'
+        'apps_c'
+        'concat'
+        'uglify'
+    ])

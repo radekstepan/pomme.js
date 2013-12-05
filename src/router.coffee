@@ -14,7 +14,7 @@ class Router
         @table[scope] ?= []
 
         for route in @table[scope] when route.win is win
-            throw "a channel is already bound to the same window under `#{scope}`"
+            throw Error("a channel is already bound to the same window under `#{scope}`")
         
         # Register this origin & scope.
         @table[scope].push { win, handler }
