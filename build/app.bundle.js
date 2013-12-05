@@ -1282,7 +1282,7 @@
    * @return {Object} exports
    * @api public
    */
-  function require(path, parent, orig) {
+  var require = function(path, parent, orig) {
     var resolved = require.resolve(path);
 
     // lookup failed
@@ -1440,7 +1440,7 @@
      * The relative require() itself.
      */
 
-    function localRequire(path) {
+    var localRequire = function(path) {
       var resolved = localRequire.resolve(path);
       return require(resolved, parent, path);
     }
@@ -1478,14 +1478,14 @@
   var root = this;
 
   // Do we already have require loader?
-  root.require = require = (typeof root.require !== 'undefined') ? root.require : require;
+  root.require = (typeof root.require !== 'undefined') ? root.require : require;
 
-  // All our modules will see our own require.
+  // All our modules will use global require.
   (function() {
     
     
     // channel.coffee
-    require.register('pomme.js/src/channel.js', function(exports, require, module) {
+    root.require.register('pomme.js/src/channel.js', function(exports, require, module) {
     
       var ChanID, Channel, FnID, constants, helpers, iFrame, router, _ref,
         __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
@@ -1780,7 +1780,7 @@
 
     
     // constants.coffee
-    require.register('pomme.js/src/constants.js', function(exports, require, module) {
+    root.require.register('pomme.js/src/constants.js', function(exports, require, module) {
     
       module.exports = {
         'postmessage': '__pomme__',
@@ -1793,7 +1793,7 @@
 
     
     // helpers.coffee
-    require.register('pomme.js/src/helpers.js', function(exports, require, module) {
+    root.require.register('pomme.js/src/helpers.js', function(exports, require, module) {
     
       var root;
       
@@ -1845,7 +1845,7 @@
 
     
     // iframe.coffee
-    require.register('pomme.js/src/iframe.js', function(exports, require, module) {
+    root.require.register('pomme.js/src/iframe.js', function(exports, require, module) {
     
       var constants, iFrame;
       
@@ -1913,7 +1913,7 @@
 
     
     // router.coffee
-    require.register('pomme.js/src/router.js', function(exports, require, module) {
+    root.require.register('pomme.js/src/router.js', function(exports, require, module) {
     
       var ChanID, FnID, Router, constants, router,
         __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
@@ -2025,7 +2025,7 @@
   })();
 
   // Return the main app.
-  var main = require("pomme.js/src/channel.js");
+  var main = root.require("pomme.js/src/channel.js");
 
   // AMD/RequireJS.
   if (typeof define !== 'undefined' && define.amd) {
@@ -2080,16 +2080,16 @@
 
   // Alias our app.
   
-  require.alias("pomme.js/src/channel.js", "pomme.js/index.js");
+  root.require.alias("pomme.js/src/channel.js", "pomme.js/index.js");
   
-  require.alias("pomme.js/src/channel.js", "Pomme.js/index.js");
+  root.require.alias("pomme.js/src/channel.js", "Pomme.js/index.js");
   
-  require.alias("pomme.js/src/channel.js", "pommejs/index.js");
+  root.require.alias("pomme.js/src/channel.js", "pommejs/index.js");
   
-  require.alias("pomme.js/src/channel.js", "PommeJS/index.js");
+  root.require.alias("pomme.js/src/channel.js", "PommeJS/index.js");
   
-  require.alias("pomme.js/src/channel.js", "pomme/index.js");
+  root.require.alias("pomme.js/src/channel.js", "pomme/index.js");
   
-  require.alias("pomme.js/src/channel.js", "Pomme/index.js");
+  root.require.alias("pomme.js/src/channel.js", "Pomme/index.js");
   
 })();
