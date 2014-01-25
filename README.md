@@ -127,3 +127,6 @@ You can see [Mocha](http://visionmedia.github.io/mocha/) tests by serving the `/
 $ make serve
 # visit http://127.0.0.1:1893/test/
 ```
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/radekstepan/pomme.js/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
