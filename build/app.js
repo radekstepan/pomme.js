@@ -1,4 +1,5 @@
-(function() {
+// A standalone CommonJS loader.
+(function(root) {
   /**
    * Require the given path.
    *
@@ -10,7 +11,7 @@
     var resolved = require.resolve(path);
 
     // lookup failed
-    if (null === resolved) {
+    if (!resolved) {
       orig = orig || path;
       parent = parent || 'root';
       var err = new Error('Failed to require "' + orig + '" from "' + parent + '"');
@@ -198,15 +199,15 @@
     return localRequire;
   };
 
-  // Global on server, window in browser.
-  var root = this;
-
   // Do we already have require loader?
   root.require = (typeof root.require !== 'undefined') ? root.require : require;
 
+})(this);
+// Concat modules and export them as an app.
+(function(root) {
+
   // All our modules will use global require.
   (function() {
-    
     
     // channel.coffee
     root.require.register('pomme.js/src/channel.js', function(exports, require, module) {
@@ -502,7 +503,6 @@
       
     });
 
-    
     // constants.coffee
     root.require.register('pomme.js/src/constants.js', function(exports, require, module) {
     
@@ -515,7 +515,6 @@
       
     });
 
-    
     // helpers.coffee
     root.require.register('pomme.js/src/helpers.js', function(exports, require, module) {
     
@@ -567,7 +566,6 @@
       
     });
 
-    
     // iframe.coffee
     root.require.register('pomme.js/src/iframe.js', function(exports, require, module) {
     
@@ -635,7 +633,6 @@
       
     });
 
-    
     // router.coffee
     root.require.register('pomme.js/src/router.js', function(exports, require, module) {
     
@@ -816,4 +813,5 @@
   
   root.require.alias("pomme.js/src/channel.js", "Pomme/index.js");
   
-})();
+
+})(this);

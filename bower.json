@@ -1,12 +1,11 @@
 {
     "name": "pomme.js",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "dependencies": {
-        "underscore": "1.5.2"
+        "underscore": null
     },
     "devDependencies": {
         "mocha": "1.14.0",
-        "assert": "0.0.1",
-        "coffee-script": "http://jashkenas.github.io/coffee-script/extras/coffee-script.js"
+        "assert": "0.1.0"
     }
 }
