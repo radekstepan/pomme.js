@@ -121,7 +121,7 @@ If you do not specify your own error handler, nothing is thrown/logged.
 
 ##Test it
 
-You can see [Mocha](http://visionmedia.github.io/mocha/) tests by serving the `/test` directory and opening it in the browser. If you have Python installed then run the following:
+You can see [Mocha](http://mochajs.org/) tests by serving the `/test` directory and opening it in the browser. If you have Python installed then run the following:
 
 ```bash
 $ make serve
